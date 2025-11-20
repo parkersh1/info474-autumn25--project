@@ -15,7 +15,11 @@
             p.fill(0);
             p.textAlign(p.CENTER, p.CENTER);
             p.textSize(48);
-            p.text(ai === 0 ? 'INFO 474' : 'Final Project', cx, cy);
+            p.text('Visualizing the Road Ahead:', cx, cy);      
+
+            p.textSize(42);
+            p.text(' How Everyday Driving Choices', cx, cy + 40);         
+             p.text('and Conditions Impact Safety', cx, cy + 80);   
             p.pop();
         }
     };
