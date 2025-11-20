@@ -20,21 +20,22 @@
             const cellHeight = 20;
             const padding = 50;
 
+            const cellWidth = 120;
+            const cellPadding = 5;
+
             // Draw heatmap cells
             for (let i = 0; i < times.length; i++) {
                 for (let j = 0; j < conditions.length; j++) {
                     const visValue = visibility[conditions[j]][i];
 
-                    const cellWidth = manager.cellWidth || 60;
-                    const cellHeight = 20;
-                    const cellPadding = 4;
+                    const cellHeight = 15;
 
                     const x = manager.offsetX + padding + j * (cellWidth + cellPadding);
                     const y = manager.offsetY + padding + i * (cellHeight + cellPadding);
 
                     const colorValue = p.map(visValue, 0, 16, 255, 50);
                     p.fill(colorValue, colorValue, 255);
-                    p.rect(x, y, cellSize, cellHeight);
+                    p.rect(x, y, cellWidth, cellHeight);
                 }
             }
 
@@ -43,7 +44,7 @@
             p.textAlign(p.CENTER, p.CENTER);
             p.textSize(12);
             for (let j = 0; j < conditions.length; j++) {
-                const x = manager.offsetX + padding + j * (manager.cellWidth || 60) + cellSize / 2;
+                const x = cellWidth / 2 + manager.offsetX + padding + j * (cellWidth + cellPadding);
                 const y = manager.offsetY + padding - 10;
                 p.text(conditions[j], x, y);
             }
@@ -65,6 +66,23 @@
                 manager.offsetY + 10);
 
             p.pop();
+
+            //Legend bottom middle
+            p.push();
+            const legendX = manager.offsetX + (manager.width || 600) / 2 - 100;
+            const legendY = manager.offsetY + (manager.height || 520) - 40;
+            p.fill(0);
+            p.textAlign(p.LEFT, p.CENTER);
+            p.textSize(12);
+            p.text('Low Visibility', legendX, legendY - 10);
+            for (let i = 0; i <= 10; i++) {
+                const colorValue = p.map(i, 0, 10, 255, 50);
+                p.fill(colorValue, colorValue, 255);
+                p.rect(legendX + i * 20, legendY, 20, 10);
+            }
+            p.text('High Visibility', legendX + 220, legendY - 10);
+            p.pop();
+           
         }
     };
 })();
