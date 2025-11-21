@@ -4,7 +4,7 @@
     window.VizBar = {
         draw: function (p, manager, ai, progress) {
             p.push();
-            var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            var months = ['Level 1','Level 2','Level 3','Level 4'];
             var left = manager.offsetX || 20;
             var top = manager.offsetY || 0;
             var availW = (manager.width || 600) - 40; // leave some right padding
@@ -20,6 +20,8 @@
             }
 
             var bc = manager._barCounts || [];
+            // color mapping for severity levels 1..4
+            var sevColors = ['#00aa00', '#F2EE1B', '#ff0000', '#8b0000'];
             p.noStroke();
             p.textAlign(p.LEFT, p.CENTER);
             p.textSize(12);
@@ -34,7 +36,9 @@
                 var bx = left + 60; // offset for labels
                 var by = y - (rowH * 0.35);
                 var bh = rowH * 0.7;
-                p.fill(80, 150, 200, 220);
+                // use a distinct color per level (i -> level i+1)
+                var col = sevColors[i % sevColors.length];
+                p.fill(col);
                 p.rect(bx, by, bw, bh, 3);
 
                 p.fill(255);
