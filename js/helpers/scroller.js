@@ -1,6 +1,7 @@
 // scroller.js
 // Small Scroller abstraction (extracted from sections_p5.js) that computes
 // active step index and progress and exposes a lightweight .on(action, cb)
+
 (function () {
     function Scroller(containerSelector, stepSelector, trigger) {
         this.container = document.querySelector(containerSelector) || document.body;
@@ -13,9 +14,11 @@
         this.onProgress = function () { };
 
         var self = this;
+
         this.resize = function () {
             self.sectionPositions = [];
             self.steps.forEach(function (el) {
+                if (!el) return;
                 // store absolute positions according to trigger type:
                 // - 'center' -> element vertical center
                 // - otherwise -> element top
@@ -31,6 +34,8 @@
         };
 
         this.position = function () {
+            if (!self.steps.length || !self.sectionPositions.length) return;
+
             // Determine the Y coordinate (absolute page Y) at which we consider a step "active"
             var triggerY;
             if (self.trigger === 'center') {
@@ -49,19 +54,25 @@
 
             if (self.currentIndex !== sectionIndex) {
                 self.currentIndex = sectionIndex;
-                self.onActive(sectionIndex);
+                if (typeof self.onActive === 'function') {
+                    self.onActive(sectionIndex);
+                }
             }
 
             // Compute progress as fraction through the current section's
             // bounding box for finer-grained values (0..1).
             var elem = self.steps[sectionIndex];
+            if (!elem) return; // guard against undefined
+
             var rect = elem.getBoundingClientRect();
             var elemTop = rect.top + window.pageYOffset;
             var elemHeight = rect.height || 1; // avoid divide-by-zero
             var rawSectionProgress = (triggerY - elemTop) / elemHeight;
             var progress = Math.max(0, Math.min(1, rawSectionProgress));
-            // console.log('scroller: sectionIndex=', sectionIndex, ' progress=', progress.toFixed(3));
-            self.onProgress(sectionIndex, progress);
+
+            if (typeof self.onProgress === 'function') {
+                self.onProgress(sectionIndex, progress);
+            }
         };
 
         window.addEventListener('resize', this.resize);
