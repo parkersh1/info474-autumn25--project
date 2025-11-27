@@ -60,8 +60,16 @@ console.log('*** NEW RENDERER FILE LOADED ***');
                 return;
             }
 
-            // 4. Scatterplot (4–5)
-            if (ai >= 4 && ai < 6) {
+            // 4. Section (3–4)
+            if (ai >= 4 && ai < 5) {
+                if (window.VizSection && typeof window.VizSection.draw === 'function') {
+                    window.VizSection.draw(p, manager, ai, progress);
+                }
+                return;
+            }
+
+            // 5. Scatterplot (4–5)
+            if (ai >= 5 && ai < 6) {
                 if (window.VizScatter && typeof window.VizScatter.draw === 'function') {
                     window.VizScatter.draw(p, manager, ai, progress);
                 }
