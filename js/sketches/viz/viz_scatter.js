@@ -149,8 +149,8 @@
 
             const interval = 5000;
             const maxTick = Math.max(interval, Math.ceil(maxVal / interval) * interval);
-            for (let v = 0; v <= maxTick; v += interval) {
-                const tx = margin.left + (v / maxTick) * innerW;
+            for (let v = 0; v <= maxVal; v += interval) {
+                const tx = margin.left + (v / maxVal) * innerW;
                 p.text(String(v), tx, lastBarBottom + 8);
             }
             p.pop();
