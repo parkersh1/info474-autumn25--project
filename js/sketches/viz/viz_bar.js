@@ -33,11 +33,11 @@
 
                 var CSV_PATH = 'data/US_Accidents_March23_WA.csv';
 
-                function runParse() {
+                function parseCsvText(csvText) {
                     try {
-                        console.log('viz_bar: starting Papa.parse for', CSV_PATH);
-                        Papa.parse(CSV_PATH, {
-                            download: true,
+                        console.log('viz_bar: starting Papa.parse on text');
+                        Papa.parse(csvText, {
+                            download: false,
                             header: true,
                             skipEmptyLines: true,
                             worker: false,
@@ -82,28 +82,52 @@
                                 updateBarCounts('All WA');
                             },
                             error: function (err) {
-                                console.error('viz_bar: Papa.parse error for', CSV_PATH, err);
+                                console.error('viz_bar: Papa.parse error on text', err);
                                 V.dataError = true;
                                 V.dataReady = false;
                                 V.lastLoadMsg = 'Papa.parse error, see console.';
                             }
                         });
                     } catch (e) {
-                        console.error('viz_bar: exception starting Papa.parse', e);
+                        console.error('viz_bar: exception in parseCsvText', e);
                         V.dataError = true;
                         V.dataReady = false;
-                        V.lastLoadMsg = 'Exception starting Papa.parse, see console.';
+                        V.lastLoadMsg = 'Exception in parseCsvText, see console.';
                     }
+                }
+
+                function startLoad() {
+                    console.log('viz_bar: fetching CSV via fetch()', CSV_PATH);
+                    fetch(CSV_PATH, { method: 'GET', cache: 'no-store' })
+                        .then(function (resp) {
+                            if (!resp.ok) {
+                                console.error('viz_bar: fetch failed for', CSV_PATH, resp.status, resp.statusText);
+                                V.dataError = true;
+                                V.lastLoadMsg = 'Fetch failed for ' + CSV_PATH + ' (' + resp.status + ')';
+                                return null;
+                            }
+                            console.log('viz_bar: fetch ok for', CSV_PATH, 'status', resp.status, resp.statusText);
+                            return resp.text();
+                        })
+                        .then(function (text) {
+                            if (!text) return;
+                            parseCsvText(text);
+                        })
+                        .catch(function (err) {
+                            console.error('viz_bar: fetch error for', CSV_PATH, err);
+                            V.dataError = true;
+                            V.lastLoadMsg = 'Fetch error for ' + CSV_PATH + ', see console.';
+                        });
                 }
 
                 // Ensure Papa is available; if not, load from CDN then parse.
                 if (window.Papa) {
-                    runParse();
+                    startLoad();
                 } else {
                     console.log('viz_bar: loading PapaParse from CDN...');
                     var s = document.createElement('script');
                     s.src = 'https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js';
-                    s.onload = runParse;
+                    s.onload = startLoad;
                     s.onerror = function (e) {
                         console.error('viz_bar: failed to load PapaParse from CDN', e);
                         V.dataError = true;
@@ -170,7 +194,7 @@
                 var msg = (V && V.lastLoadMsg) ? V.lastLoadMsg : 'Data not available.';
                 p.text(msg, left, top + 6);
                 p.textSize(11);
-                p.text('Ensure data/US_Accidents_March23_WA.csv exists and the site is served over HTTP (e.g. http://localhost:8000/).', left, top + 26);
+                p.text('Ensure data/US_Accidents_March23_WA.csv exists and the site is served over HTTP (e.g. http://localhost:8000/ or GitHub Pages).', left, top + 26);
                 p.pop();
                 return;
             }
