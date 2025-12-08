@@ -7,7 +7,7 @@
         draw: function (p, manager, ai, progress) {
             p.push();
 
-            var labels = ['Severity 1', 'Severity 2', 'Severity 3', 'Severity 4'];
+            var labels = ['Severity Level 1', 'Severity Level 2', 'Severity Level 3', 'Severity Level 4'];
             var left = manager.offsetX || 20;
             var top = manager.offsetY || 0;
             var availW = (manager.width || 700) - 40; // leave some right padding
@@ -230,7 +230,7 @@
             var total = labelsAbs.reduce(function (a, b) { return a + b; }, 0);
             var perc = total > 0 ? labelsAbs.map(function (v) { return (v / total) * 100; }) : [0, 0, 0, 0];
 
-            var sevColors = ['#00aa00', '#F2EE1B', '#ff0000', '#8b0000'];
+            var sevColors = ['#00aa00', '#F2EE1B', '#ff8800', '#8b0000'];
             p.noStroke();
             p.textSize(12);
 
