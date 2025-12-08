@@ -6,7 +6,7 @@
             manager.width = manager.width || 700;
             manager.height = manager.height || 500;
             const offsetX = manager.offsetX || 60;
-            const offsetY = manager.offsetY || 40;
+            const offsetY = manager.offsetY || 150;
             const chartWidth = manager.width - 2 * offsetX;
             const chartHeight = manager.height - 2 * offsetY;
 
@@ -76,6 +76,13 @@
             p.textSize(18);
             p.textAlign(p.CENTER, p.TOP);
             p.text('Weather Conditions with Highest Average Severity', manager.width / 2, offsetY - 30);
+            //subtitle
+            p.textSize(14);
+            p.textAlign(p.CENTER, p.TOP);
+            p.text('(Hover over bars for details)', manager.width / 2, offsetY - 10);
+
+
+
 
             if (!window._weatherSeverityLoaded || data.length === 0) {
                 p.textSize(14);
@@ -84,28 +91,45 @@
                 return;
             }
 
-            // Bar chart
-            const barHeight = Math.min(30, chartHeight / data.length - 8);
+            const barHeight = chartHeight / data.length;
             const maxSeverity = Math.max(...data.map(d => d.avgSeverity));
-            // Track mouse for tooltip
             let hoveredIndex = -1;
+
+            const test = offsetY + 20;  // add 60px padding below subtitle
+
             for (let i = 0; i < data.length; i++) {
                 const d = data[i];
-                const y = offsetY + i * (barHeight + 8);
-                const barW = (d.avgSeverity / maxSeverity) * chartWidth * 0.9;
-                // Bar
-                p.fill(255, 100, 100);
-                p.stroke(200, 50, 50);
-                p.rect(offsetX, y, barW, barHeight);
-                // Label
-                p.fill(0);
+                const y = test + i * (barHeight + 8);
+                const barW = (d.avgSeverity / maxSeverity) * chartWidth;
+
+                // Map severity to traffic-light colors
+                if (d.avgSeverity >= 3 && d.avgSeverity <= 4) {
+                    col = p.color(220, 60, 60); // red
+                } else {
+                    col = p.color(240, 200, 70); // yellow
+                }
+
+                // Bar styling
+                p.fill(col);
+                p.stroke(255);              // subtle white outline
+                p.strokeWeight(0.6);
+                p.rect(offsetX, y, barW, barHeight, 6); // rounded corners
+
+                // Label styling
+                p.noStroke();
+                p.fill(30);
                 p.textSize(13);
                 p.textAlign(p.LEFT, p.CENTER);
-                p.text(d.condition + ' (' + d.avgSeverity.toFixed(2) + ')', offsetX + barW + 10, y + barHeight / 2);
+                p.text(`${d.condition} (${d.avgSeverity.toFixed(2)})`, offsetX + barW + 12, y + barHeight / 2);
 
-                // Check hover
-                if (p.mouseX >= offsetX && p.mouseX <= offsetX + barW && p.mouseY >= y && p.mouseY <= y + barHeight) {
+                // Hover effect: highlight bar
+                if (p.mouseX >= offsetX && p.mouseX <= offsetX + barW &&
+                    p.mouseY >= y && p.mouseY <= y + barHeight) {
                     hoveredIndex = i;
+                    p.stroke(50, 50, 50);
+                    p.strokeWeight(1.2);
+                    p.noFill();
+                    p.rect(offsetX, y, barW, barHeight, 6);
                 }
             }
 
@@ -114,28 +138,50 @@
                 const d = data[hoveredIndex];
                 const y = offsetY + hoveredIndex * (barHeight + 8);
                 const barW = (d.avgSeverity / maxSeverity) * chartWidth * 0.9;
-                const tooltipX = Math.min(p.mouseX + 20, manager.width - 220);
-                const tooltipY = Math.max(p.mouseY - 10, 30);
-                p.fill(255, 255, 220);
-                p.stroke(180, 180, 100);
-                p.rect(tooltipX, tooltipY, 210, 110, 8);
+
+                // Tooltip position
+                const tooltipX = Math.min(p.mouseX + 20, manager.width - 240);
+                const tooltipY = Math.max(p.mouseY - 10, 40);
+                const boxW = 230;
+                const boxH = 130;
+
+                // Drop shadow
                 p.noStroke();
-                p.fill(40);
+                p.fill(0, 50); // semi-transparent black
+                p.rect(tooltipX + 4, tooltipY + 4, boxW, boxH, 10);
+
+                // Tooltip background
+                p.fill(255, 255, 240); // soft ivory
+                p.stroke(200, 200, 150);
+                p.strokeWeight(1);
+                p.rect(tooltipX, tooltipY, boxW, boxH, 10);
+
+                // Text styling
+                p.noStroke();
+                p.fill(30);
                 p.textSize(13);
                 p.textAlign(p.LEFT, p.TOP);
-                p.text('Condition: ' + d.condition, tooltipX + 10, tooltipY + 8);
-                p.text('Avg Severity: ' + d.avgSeverity.toFixed(2), tooltipX + 10, tooltipY + 28);
-                p.text('Incidents: ' + d.count, tooltipX + 10, tooltipY + 46);
-                p.text('Avg Visibility: ' + (d.avgVisibility !== null ? d.avgVisibility.toFixed(2) + ' mi' : 'N/A'), tooltipX + 10, tooltipY + 64);
-                p.text('Avg Precipitation: ' + (d.avgPrecipitation !== null ? d.avgPrecipitation.toFixed(2) + ' in' : 'N/A'), tooltipX + 10, tooltipY + 80);
-                p.text('Avg Humidity: ' + (d.avgHumidity !== null ? d.avgHumidity.toFixed(1) + ' %' : 'N/A'), tooltipX + 10, tooltipY + 96);
-                p.text('Avg Wind Speed: ' + (d.avgWindSpeed !== null ? d.avgWindSpeed.toFixed(2) + ' mph' : 'N/A'), tooltipX + 10, tooltipY + 112);
-            }
 
-            // Axis label
-            p.textSize(12);
-            p.textAlign(p.CENTER, p.BOTTOM);
-            p.text('Average Severity', manager.width / 2, manager.height - 10);
+                let lineY = tooltipY + 10;
+                const lineH = 18;
+
+                // Bold header
+                p.textStyle(p.BOLD);
+                p.text(`Condition: ${d.condition}`, tooltipX + 12, lineY);
+                p.textStyle(p.NORMAL);
+
+                lineY += lineH;
+                p.text(`Avg Severity: ${d.avgSeverity.toFixed(2)}`, tooltipX + 12, lineY);
+
+                lineY += lineH;
+                p.text(`Avg Visibility: ${d.avgVisibility !== null ? d.avgVisibility.toFixed(2) + ' mi' : 'N/A'}`, tooltipX + 12, lineY);
+
+                lineY += lineH;
+                p.text(`Avg Humidity: ${d.avgHumidity !== null ? d.avgHumidity.toFixed(1) + ' %' : 'N/A'}`, tooltipX + 12, lineY);
+
+                lineY += lineH;
+                p.text(`Avg Wind Speed: ${d.avgWindSpeed !== null ? d.avgWindSpeed.toFixed(2) + ' mph' : 'N/A'}`, tooltipX + 12, lineY);
+            }
 
             p.pop();
         }
