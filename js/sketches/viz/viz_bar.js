@@ -13,7 +13,7 @@
             var availW = (manager.width || 700) - 40; // leave some right padding
             var availH = (manager.height || 520) - 20;
             var rowH = availH / labels.length;
-            var barMaxW = Math.max(140, availW - 160);
+            var barMaxW = Math.max(140, availW - 260); 
 
             // persistent viz state on manager
             if (!manager._viz) manager._viz = { initialized: false };
@@ -172,13 +172,20 @@
 
             function updateBarCounts(cityName) {
                 var counts = [0, 0, 0, 0];
-                if (!cityName || cityName === 'All WA') counts = V.staticCountsOverall.slice();
-                else if (V.staticCountsByCity && V.staticCountsByCity[cityName]) counts = V.staticCountsByCity[cityName].slice();
+                if (!cityName || cityName === 'All WA') {
+                    counts = V.staticCountsOverall.slice();
+                } else if (V.staticCountsByCity && V.staticCountsByCity[cityName]) {
+                    counts = V.staticCountsByCity[cityName].slice();
+                }
 
-                var maxForNorm = Math.max(1, V.globalMax);
+                // Normalize **within** the current selection, not against globalMax
+                var localMax = counts.reduce(function (a, b) { return Math.max(a, b); }, 0);
+                var maxForNorm = Math.max(1, localMax);
+
                 manager._barCounts = counts.map(function (v) { return v / maxForNorm; });
                 manager._barLabels = counts;
             }
+
 
             // === 3. DRAW TITLE / LOADING STATE =======================================
 
