@@ -219,6 +219,10 @@
             var bc = manager._barCounts || [0, 0, 0, 0];
             var labelsAbs = manager._barLabels || [0, 0, 0, 0];
 
+            // compute percentages for current selection
+            var total = labelsAbs.reduce(function (a, b) { return a + b; }, 0);
+            var perc = total > 0 ? labelsAbs.map(function (v) { return (v / total) * 100; }) : [0, 0, 0, 0];
+
             var sevColors = ['#00aa00', '#F2EE1B', '#ff0000', '#8b0000'];
             p.noStroke();
             p.textAlign(p.LEFT, p.CENTER);
@@ -243,14 +247,17 @@
                 p.rect(bx, by, bw, bh, 3);
 
                 var absCount = labelsAbs[i] || 0;
-                if (bw > 36) {
+                var pctText = '(' + perc[i].toFixed(1) + '%)';
+
+                // decide whether to draw text inside or outside the bar
+                if (bw > 60) {
                     p.fill(255);
                     p.textAlign(p.LEFT, p.CENTER);
-                    p.text('' + absCount, bx + 6, y);
+                    p.text(absCount + ' ' + pctText, bx + 6, y);
                 } else {
                     p.fill(0);
                     p.textAlign(p.LEFT, p.CENTER);
-                    p.text('' + absCount, bx + bw + 8, y);
+                    p.text(absCount + ' ' + pctText, bx + bw + 8, y);
                 }
             }
 
