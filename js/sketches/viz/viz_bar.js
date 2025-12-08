@@ -13,7 +13,10 @@
             var availW = (manager.width || 700) - 40; // leave some right padding
             var availH = (manager.height || 520) - 20;
             var rowH = availH / labels.length;
-            var barMaxW = Math.max(140, availW - 260); 
+            var barMaxW = Math.max(140, availW - 260);
+
+            // when to show the dropdown+reset UI based on scroll progress
+            var BUTTON_VIS_THRESHOLD = 0.55;
 
             // persistent viz state on manager
             if (!manager._viz) manager._viz = { initialized: false };
@@ -41,7 +44,7 @@
                             header: true,
                             skipEmptyLines: true,
                             worker: false,
-                            step: function (results, parser) {
+                            step: function (results) {
                                 var row = results.data || {};
                                 var sevRaw = row['Severity'] || row['severity'] || row['SEVERITY'];
                                 var cityRaw = row['City'] || row['city'] || row['CITY'] || '';
@@ -141,16 +144,20 @@
 
             function createCitySelector() {
                 if (V.cityContainer) return;
+
                 V.cityContainer = p.createDiv('')
                     .style('position', 'absolute')
                     .style('z-index', '10000')
                     .style('background', 'transparent')
                     .style('display', 'none');
+
                 V.cityContainer.parent(document.body);
 
                 V.citySelect = p.createSelect().parent(V.cityContainer);
                 V.citySelect.option('All WA');
-                for (var i = 0; i < V.topCities.length; i++) V.citySelect.option(V.topCities[i]);
+                for (var i = 0; i < V.topCities.length; i++) {
+                    V.citySelect.option(V.topCities[i]);
+                }
                 V.citySelect.changed(function () {
                     var val = V.citySelect.value();
                     V.selectedCity = val;
@@ -165,9 +172,6 @@
                     V.selectedCity = 'All WA';
                     updateBarCounts('All WA');
                 });
-
-                V.cityContainer.position(10, 10);
-                V.selectorShown = false;
             }
 
             function updateBarCounts(cityName) {
@@ -178,7 +182,7 @@
                     counts = V.staticCountsByCity[cityName].slice();
                 }
 
-                // Normalize **within** the current selection, not against globalMax
+                // Normalize within current selection
                 var localMax = counts.reduce(function (a, b) { return Math.max(a, b); }, 0);
                 var maxForNorm = Math.max(1, localMax);
 
@@ -186,8 +190,7 @@
                 manager._barLabels = counts;
             }
 
-
-            // === 3. DRAW TITLE / LOADING STATE =======================================
+            // === 3. TITLE / LOADING STATE ============================================
 
             p.noStroke();
             p.fill(0);
@@ -201,24 +204,33 @@
                 var msg = (V && V.lastLoadMsg) ? V.lastLoadMsg : 'Data not available.';
                 p.text(msg, left, top + 6);
                 p.textSize(11);
-                p.text('Ensure data/US_Accidents_March23_WA.csv exists and the site is served over HTTP (e.g. http://localhost:8000/ or GitHub Pages).', left, top + 26);
+                p.text(
+                    'Ensure data/US_Accidents_March23_WA.csv exists and the site is served over HTTP (e.g. http://localhost:8000/ or GitHub Pages).',
+                    left,
+                    top + 26
+                );
                 p.pop();
                 return;
             }
 
-            // === 4. POSITION SELECTOR ONCE DATA IS READY =============================
+            // === 4. POSITION / SHOW OR HIDE SELECTOR BASED ON PROGRESS ==============
 
-            if (V.dataReady && V.cityContainer && p.canvas) {
+            if (V.cityContainer && p.canvas) {
                 try {
                     var crect = p.canvas.getBoundingClientRect();
-                    var px = Math.round(crect.left + window.scrollX + left);
-                    var py = Math.round(crect.top + window.scrollY + top - 36);
-                    V.cityContainer.position(px, py);
-                    if (!V.selectorShown) {
+                    var px = Math.round(crect.left + window.scrollX + left + 160 + barMaxW - 140);
+                    var py = Math.round(crect.top + window.scrollY + top - 30);
+
+                    if (progress >= BUTTON_VIS_THRESHOLD) {
+                        // only visible once this viz is "active" enough
+                        V.cityContainer.position(px, py);
                         V.cityContainer.style('display', 'block');
-                        V.selectorShown = true;
+                    } else {
+                        V.cityContainer.style('display', 'none');
                     }
-                } catch (e) { /* ignore */ }
+                } catch (e) {
+                    // ignore positioning errors
+                }
             }
 
             // === 5. DRAW BARS ========================================================
@@ -226,7 +238,6 @@
             var bc = manager._barCounts || [0, 0, 0, 0];
             var labelsAbs = manager._barLabels || [0, 0, 0, 0];
 
-            // compute percentages for current selection
             var total = labelsAbs.reduce(function (a, b) { return a + b; }, 0);
             var perc = total > 0 ? labelsAbs.map(function (v) { return (v / total) * 100; }) : [0, 0, 0, 0];
 
@@ -237,32 +248,29 @@
             for (var i = 0; i < labels.length; i++) {
                 var y = top + i * rowH + rowH / 2;
 
-                    p.fill(30);
-                    p.textAlign(p.LEFT, p.CENTER);
-                    p.text(labels[i], left, y);
+                p.fill(30);
+                p.textAlign(p.LEFT, p.CENTER);
+                p.text(labels[i], left, y);
 
-                    var valNorm = bc[i] || 0;
-                    var scaled = Math.pow(valNorm, 0.6);
-                    var bx = left + 160;
-                    var bw = valNorm > 0 ? Math.max(10, scaled * barMaxW) : 0;
-                    var by = y - (rowH * 0.35);
-                    var bh = rowH * 0.7;
+                var valNorm = bc[i] || 0;
+                var scaled = Math.pow(valNorm, 0.6);
+                var bx = left + 160;
+                var bw = valNorm > 0 ? Math.max(10, scaled * barMaxW) : 0;
+                var by = y - (rowH * 0.35);
+                var bh = rowH * 0.7;
 
-                    p.fill(sevColors[i]);
-                    p.rect(bx, by, bw, bh, 3);
+                p.fill(sevColors[i]);
+                p.rect(bx, by, bw, bh, 3);
 
-                    // --- text always outside bar ---
-                    var absCount = labelsAbs[i] || 0;
-                    var pctText = '(' + perc[i].toFixed(1) + '%)';
-                    var labelText = absCount + ' ' + pctText;
+                var absCount = labelsAbs[i] || 0;
+                var pctText = '(' + perc[i].toFixed(1) + '%)';
+                var labelText = absCount + ' ' + pctText;
 
-                    p.fill(0);
-                    p.textAlign(p.LEFT, p.CENTER);
-                    p.text(labelText, bx + bw + 8, y);
-                }
+                p.fill(0);
+                p.textAlign(p.LEFT, p.CENTER);
+                p.text(labelText, bx + bw + 8, y);
+            }
 
-
-            // selected city label
             p.textAlign(p.LEFT, p.TOP);
             p.textSize(12);
             var cityLabel = V.selectedCity || 'All WA';
