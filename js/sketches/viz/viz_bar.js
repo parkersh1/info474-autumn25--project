@@ -230,42 +230,30 @@
             for (var i = 0; i < labels.length; i++) {
                 var y = top + i * rowH + rowH / 2;
 
-                // label on left
-                p.fill(30);
-                p.textAlign(p.LEFT, p.CENTER);
-                p.text(labels[i], left, y);
+                    p.fill(30);
+                    p.textAlign(p.LEFT, p.CENTER);
+                    p.text(labels[i], left, y);
 
-                var valNorm = bc[i] || 0;
-                var scaled = Math.pow(valNorm, 0.6);
-                var bx = left + 160;
-                var bw = 0;
-                if (valNorm > 0) {
-                    bw = Math.max(10, scaled * barMaxW);
-                }
-                var by = y - (rowH * 0.35);
-                var bh = rowH * 0.7;
-                var col = sevColors[i % sevColors.length];
+                    var valNorm = bc[i] || 0;
+                    var scaled = Math.pow(valNorm, 0.6);
+                    var bx = left + 160;
+                    var bw = valNorm > 0 ? Math.max(10, scaled * barMaxW) : 0;
+                    var by = y - (rowH * 0.35);
+                    var bh = rowH * 0.7;
 
-                // draw bar first
-                p.fill(col);
-                p.rect(bx, by, bw, bh, 3);
+                    p.fill(sevColors[i]);
+                    p.rect(bx, by, bw, bh, 3);
 
-                // now draw text on top, always black
-                var absCount = labelsAbs[i] || 0;
-                var pctText = '(' + perc[i].toFixed(1) + '%)';
-                var labelText = absCount + ' ' + pctText;
+                    // --- text always outside bar ---
+                    var absCount = labelsAbs[i] || 0;
+                    var pctText = '(' + perc[i].toFixed(1) + '%)';
+                    var labelText = absCount + ' ' + pctText;
 
-                p.fill(0); // always black
-                p.textAlign(p.LEFT, p.CENTER);
-
-                if (bw > 60) {
-                    // text inside left part of bar
-                    p.text(labelText, bx + 6, y);
-                } else {
-                    // text just outside the bar
+                    p.fill(0);
+                    p.textAlign(p.LEFT, p.CENTER);
                     p.text(labelText, bx + bw + 8, y);
                 }
-            }
+
 
             // selected city label
             p.textAlign(p.LEFT, p.TOP);
