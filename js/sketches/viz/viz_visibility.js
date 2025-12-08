@@ -144,9 +144,9 @@
             this.startFetchIfNeeded();
 
             var offsetX = manager.offsetX || 20;
-            var offsetY = manager.offsetY || 20;
-            var width = (manager.width || 600) - 40;
-            var height = (manager.height || 400) - 60;
+            var offsetY = manager.offsetY || 150;
+            var width = (manager.width || 600) ;
+            var height = (manager.height || 400);
 
 
             // --- Visibility integer histogram (1..10) - vertical bars showing percentage of incidents ---
@@ -159,7 +159,7 @@
             p.fill(0);
             p.textSize(18);
             p.textAlign(p.CENTER, p.TOP);
-            p.text('Visibility (mi) distribution — percentage of incidents', offsetX + width / 2, offsetY);
+            p.text('Visibility (mi) Distribution — Percentage of Incidents', offsetX + width / 2, offsetY);
 
             p.push();
             p.translate(histX, histY);
