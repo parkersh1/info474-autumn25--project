@@ -80,6 +80,7 @@
             p.textSize(14);
             p.textAlign(p.CENTER, p.TOP);
             p.text('(Hover over bars for details)', manager.width / 2, offsetY - 10);
+             p.text("Severity is graded from 1–4 (1=lowest, 4=highest)", manager.width / 2, offsetY - 10 + 20);
 
 
 
@@ -95,7 +96,7 @@
             const maxSeverity = Math.max(...data.map(d => d.avgSeverity));
             let hoveredIndex = -1;
 
-            const test = offsetY + 20;  // add 60px padding below subtitle
+            const test = offsetY + 30;  // add 60px padding below subtitle
 
             for (let i = 0; i < data.length; i++) {
                 const d = data[i];
@@ -103,11 +104,11 @@
                 const barW = (d.avgSeverity / maxSeverity) * chartWidth;
 
                 // Map severity to traffic-light colors
-                if (d.avgSeverity >= 3 && d.avgSeverity <= 4) {
-                    col = p.color(220, 60, 60); // red
-                } else {
+                //if (d.avgSeverity >= 3 && d.avgSeverity <= 4) {
+                    //col = p.color(220, 60, 60); // red
+                //} else {
                     col = p.color(240, 200, 70); // yellow
-                }
+               // }
 
                 // Bar styling
                 p.fill(col);
@@ -132,6 +133,7 @@
                     p.rect(offsetX, y, barW, barHeight, 6);
                 }
             }
+
 
             // Draw tooltip if hovering
             if (hoveredIndex !== -1) {

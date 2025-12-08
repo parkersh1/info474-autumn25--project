@@ -97,6 +97,11 @@
                         const vInt = Math.round(visNum2);
                         visCounts[vInt] = (visCounts[vInt] || 0) + 1;
                         visTotal++;
+                        // const vInt = Math.round(visNum2);
+                        // if (vInt >= 1 && vInt <= 9) {
+                        //     visCounts[vInt] = (visCounts[vInt] || 0) + 1;
+                        //     visTotal++;
+                        // }
                     }
                 }
             });
@@ -145,12 +150,12 @@
 
             var offsetX = manager.offsetX || 20;
             var offsetY = manager.offsetY || 150;
-            var width = (manager.width || 600) ;
+            var width = (manager.width || 600);
             var height = (manager.height || 400);
 
 
             // --- Visibility integer histogram (1..10) - vertical bars showing percentage of incidents ---
-            var histWidth = Math.floor(width ); // 95% of canvas width
+            var histWidth = Math.floor(width); // 95% of canvas width
             var histHeight = Math.min(320, height); // taller for more impact
             var histX = offsetX + Math.floor((width - histWidth) / 2); // center horizontally
             var histY = offsetY + 40;
@@ -180,7 +185,7 @@
                 var cnt = counts[v] || 0;
                 // percentage of ALL incidents (as requested)
                 var pctOfAll = (cnt / (totalRecordsAll || 1)) * 100;
-                bars.push({vis: v, count: cnt, pctAll: pctOfAll});
+                bars.push({ vis: v, count: cnt, pctAll: pctOfAll });
                 if (pctOfAll > maxPct) maxPct = pctOfAll;
             }
             if (maxPct <= 0) maxPct = 1;
