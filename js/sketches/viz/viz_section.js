@@ -214,43 +214,6 @@
                 p.pop();
             }
 
-            function drawRoundabout(p, cx, cy, size, counts) {
-                p.push();
-                p.noStroke();
-
-                p.fill(245);
-                p.rectMode(p.CENTER);
-                p.rect(cx, cy, size * 1.2, size * 0.9, 6);
-
-                const outerR = size * 0.45;
-                const ringW = outerR * 0.4;
-
-                p.fill(60);
-                const approachW = ringW * 0.8;
-                p.rect(cx - outerR * 1.2, cy, approachW, outerR * 0.5, 4);
-                p.rect(cx + outerR * 1.2, cy, approachW, outerR * 0.5, 4);
-                p.rect(cx, cy - outerR * 1.2, outerR * 0.5, approachW, 4);
-                p.rect(cx, cy + outerR * 1.2, outerR * 0.5, approachW, 4);
-
-                p.fill(70);
-                p.ellipse(cx, cy, outerR * 2, outerR * 2);
-                p.fill(245);
-                p.ellipse(cx, cy, (outerR - ringW) * 2, (outerR - ringW) * 2);
-
-                const pieD = (outerR - ringW) * 1.3;
-                drawPieAt(p, cx, cy, pieD, counts);
-                registerPie("Roundabout", cx, cy, pieD, counts);
-
-                p.fill(200);
-                p.triangle(cx + outerR * 0.7, cy - 6, cx + outerR * 0.9, cy, cx + outerR * 0.7, cy + 6);
-                p.triangle(cx - outerR * 0.7, cy - 6, cx - outerR * 0.9, cy, cx - outerR * 0.7, cy + 6);
-                p.triangle(cx - 6, cy + outerR * 0.7, cx, cy + outerR * 0.9, cx + 6, cy + outerR * 0.7);
-                p.triangle(cx - 6, cy - outerR * 0.7, cx, cy - outerR * 0.9, cx + 6, cy - outerR * 0.7);
-
-                drawLegend(p, cx + outerR * 1.6, cy - outerR * 0.4, counts);
-                p.pop();
-            }
-
             function drawPieAt(p, cx, cy, diameter, counts) {
                 p.push();
                 p.angleMode(p.DEGREES);
