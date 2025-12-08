@@ -223,7 +223,7 @@
             var total = labelsAbs.reduce(function (a, b) { return a + b; }, 0);
             var perc = total > 0 ? labelsAbs.map(function (v) { return (v / total) * 100; }) : [0, 0, 0, 0];
 
-            var sevColors = ['#00aa00', '#ffb13d', '#ff0000', '#8b0000'];
+            var sevColors = ['#00aa00', '#F2EE1B', '#ff0000', '#8b0000'];
             p.noStroke();
             p.textSize(12);
 
