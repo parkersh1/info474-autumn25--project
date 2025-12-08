@@ -49,10 +49,10 @@ console.log('*** NEW RENDERER FILE LOADED ***');
                 return;
             }
 
-            // 3. Heatmap (2)
+            // 3. Visibility(2)
             if (ai === 2) {
-                if (window.VizHeatmap && typeof window.VizHeatmap.draw === 'function') {
-                    window.VizHeatmap.draw(p, manager, ai, progress);
+                if (window.VizSeverityVisibility && typeof window.VizSeverityVisibility.draw === 'function') {
+                    window.VizSeverityVisibility.draw(p, manager, ai, progress);
                 }
                 return;
             }
