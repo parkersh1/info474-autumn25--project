@@ -9,7 +9,6 @@
             if (!manager._sectionCounts) {
                 manager._sectionCounts = {
                     crossing: { true: 0, false: 0 },
-                    roundabout: { true: 0, false: 0 },
                     total: 0
                 };
 
@@ -17,25 +16,18 @@
                     try {
                         const parsed = await loadCSV(DATA_PATH);
                         let crossingTrue = 0;
-                        let roundTrue = 0;
                         let total = 0;
 
                         parsed.rows.forEach(r => {
                             total++;
 
                             const crossingVal = normalizeBool(r["Crossing"]);
-                            const roundVal = normalizeBool(r["Roundabout"]);
-
                             if (crossingVal === true) crossingTrue++;
-                            if (roundVal === true) roundTrue++;
                         });
 
                         manager._sectionCounts.total = total;
                         manager._sectionCounts.crossing.true = crossingTrue;
                         manager._sectionCounts.crossing.false = Math.max(0, total - crossingTrue);
-
-                        manager._sectionCounts.roundabout.true = roundTrue;
-                        manager._sectionCounts.roundabout.false = Math.max(0, total - roundTrue);
                     } catch (err) {
                         console.error("Failed to load section CSV", err);
                     }
@@ -70,7 +62,12 @@
                     } else if (ch === "," && !inQuotes) {
                         row.push(cur); cur = "";
                     } else if ((ch === "\n" || ch === "\r") && !inQuotes) {
-                        if (cur !== "" || row.length > 0) { row.push(cur); rows.push(row); row = []; cur = ""; }
+                        if (cur !== "" || row.length > 0) {
+                            row.push(cur);
+                            rows.push(row);
+                            row = [];
+                            cur = "";
+                        }
                         if (ch === "\r" && data[i + 1] === "\n") i++;
                     } else {
                         cur += ch;
@@ -78,6 +75,7 @@
                 }
                 if (cur !== "" || row.length > 0) { row.push(cur); rows.push(row); }
                 if (rows.length === 0) return { headers: [], rows: [] };
+
                 const headers = rows[0].map(s => s.trim());
                 const objs = [];
                 for (let r = 1; r < rows.length; r++) {
@@ -98,34 +96,31 @@
 
             const w = manager.width || 600;
             const h = manager.height || 520;
-            const ox = (manager.offsetX || 0);
-            const oy = (manager.offsetY || 0);
+            const ox = manager.offsetX || 0;
+            const oy = manager.offsetY || 0;
 
-            const margin = 24;
-            const areaH = (h - margin * 3) / 2;
+            // we only need one visualization now, placed a bit lower on the canvas
+            const centerX = ox + w * 0.35;
+            const centerY = oy + h * 0.6;          // lower than the vertical middle
+            const size = Math.min(w * 0.5, h * 0.55);
 
-            // for hover tooltips
+            // for hover tooltip over the pie
             const pies = [];
-            function registerPie(label, cx, cy, diameter, counts) {
-                pies.push({ label, cx, cy, r: diameter / 2, counts });
-            }
 
-            const topX = ox + w * 0.35;
-            const topY = oy + margin + areaH / 2;
-            drawCrossing(p, topX, topY, Math.min(w * 0.5, areaH * 0.8),
-                         manager._sectionCounts ? manager._sectionCounts.crossing : null);
+            drawCrossing(
+                p,
+                centerX,
+                centerY,
+                size,
+                manager._sectionCounts ? manager._sectionCounts.crossing : null
+            );
 
-            const botX = ox + w * 0.35;
-            const botY = oy + margin * 2 + areaH + areaH / 2;
-            drawRoundabout(p, botX, botY, Math.min(w * 0.4, areaH * 0.7),
-                           manager._sectionCounts ? manager._sectionCounts.roundabout : null);
-
+            // title
             p.push();
             p.fill(0);
             p.textAlign(p.CENTER, p.BOTTOM);
             p.textSize(16);
-            p.text("Traffic Crossing — Accident proportion", topX, topY - areaH / 2 + 8);
-            p.text("Roundabout — Accident proportion", botX, botY - areaH / 2 + 8);
+            p.text("Traffic Crossing — Accident proportion", centerX, centerY - size * 0.55);
             p.pop();
 
             // ---------- hover tooltip ----------
@@ -159,7 +154,7 @@
                 p.textSize(11);
                 p.text(hover.label, tx + 8, ty + 6);
                 p.text(
-                    "At this feature: " + t +
+                    "At crossings: " + t +
                     "\nElsewhere: " + f +
                     "\nShare of crashes: " + pct.toFixed(1) + "%", 
                     tx + 8, ty + 20
@@ -171,6 +166,10 @@
 
             // ---------- drawing helpers ----------
 
+            function registerPie(label, cx, cy, diameter, counts) {
+                pies.push({ label, cx, cy, r: diameter / 2, counts });
+            }
+
             function drawCrossing(p, cx, cy, size, counts) {
                 p.push();
                 p.rectMode(p.CENTER);
@@ -179,13 +178,16 @@
                 const roadW = size * 0.25;
                 const box = size * 0.18;
 
+                // background
                 p.fill(245);
                 p.rect(cx, cy, size, size, 6);
 
+                // roads
                 p.fill(60);
                 p.rect(cx, cy, roadW, size * 0.95, 2);
                 p.rect(cx, cy, size * 0.95, roadW, 2);
 
+                // lane markings
                 p.stroke(220);
                 p.strokeWeight(2);
                 for (let i = -1; i <= 1; i += 2) {
@@ -193,14 +195,17 @@
                     p.line(x, cy - size * 0.45, x, cy + size * 0.45);
                 }
 
+                // center block
                 p.noStroke();
                 p.fill(80);
                 p.rect(cx, cy, box, box, 4);
 
+                // pie chart
                 const pieD = box * 1.3;
                 drawPieAt(p, cx, cy, pieD, counts);
-                registerPie("Crossing", cx, cy, pieD, counts);
+                registerPie("Intersection with crossing", cx, cy, pieD, counts);
 
+                // small crosswalk marks
                 p.fill(255);
                 const markH = 6;
                 for (let j = -1; j <= 1; j += 2) {
@@ -210,6 +215,7 @@
                     p.rect(cx + size / 6, cy + j * (size / 2 - 12), markH, 6, 2);
                 }
 
+                // legend
                 drawLegend(p, cx + size * 0.6, cy - size * 0.35, counts);
                 p.pop();
             }
@@ -253,11 +259,11 @@
                 p.fill(200, 70, 70);
                 p.rect(x, y, 12, 12, 2);
                 p.fill(0);
-                p.text("Accidents" + (counts ? " — " + (counts.true || 0) : ""), x + 14, y + 2);
+                p.text("Crashes at crossings" + (counts ? " — " + (counts.true || 0) : ""), x + 14, y + 2);
                 p.fill(80, 160, 60);
                 p.rect(x, y + 18, 12, 12, 2);
                 p.fill(0);
-                p.text("Other traffic accidents" + (counts ? " — " + (counts.false || 0) : ""), x + 14, y + 20);
+                p.text("Crashes elsewhere" + (counts ? " — " + (counts.false || 0) : ""), x + 14, y + 20);
                 p.pop();
             }
         }
