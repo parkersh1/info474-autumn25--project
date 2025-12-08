@@ -86,8 +86,41 @@
         if (severityValid > 0) stats.avgSeverity = (severitySum / severityValid).toFixed(2);
         if (visibilityValid > 0) stats.avgVisibility = (visibilitySum / visibilityValid).toFixed(2);
 
+        // Build visibility integer histogram (percentage per visibility integer)
+        const visCounts = {};
+        let visTotal = 0;
+        rows.forEach(r2 => {
+            const visibilityRaw2 = (r2['Visibility(mi)'] === undefined || r2['Visibility(mi)'] === null) ? '' : String(r2['Visibility(mi)']).trim();
+            if (visibilityRaw2 !== '') {
+                const visNum2 = parseFloat(visibilityRaw2);
+                if (!isNaN(visNum2)) {
+                    const vInt = Math.round(visNum2);
+                    visCounts[vInt] = (visCounts[vInt] || 0) + 1;
+                    visTotal++;
+                }
+            }
+        });
+
+        const visPercentages = {};
+        Object.keys(visCounts).forEach(k => {
+            visPercentages[k] = ((visCounts[k] / (visTotal || 1)) * 100).toFixed(2);
+        });
+
+        stats.visibilityHistogram = {
+            totalWithVisibility: visTotal,
+            counts: visCounts,
+            percentages: visPercentages
+        };
+
+        // Log histogram summary once
+        if (!this._visibilityHistogramLogged) {
+            console.log('VizSeverityVisibility: visibility integer histogram', stats.visibilityHistogram);
+            this._visibilityHistogramLogged = true;
+        }
+
         return stats;
     },
+
 
     startFetchIfNeeded: function() {
         if (this._fetchStarted) return;
@@ -115,58 +148,92 @@
         var width = (manager.width || 600) - 40;
         var height = (manager.height || 400) - 60;
 
-        // Use current data or defaults while loading
-        var severityCount = this.stats.severityCount || 1500;
-        var visibilityCount = this.stats.visibilityCount || 1200;
-        var totalRecords = this.stats.totalRecords || 3000;
+    // Draw title for the histogram view
+    p.fill(0);
+    p.textSize(18);
+    p.textAlign(p.LEFT);
+    p.text('Visibility (mi) distribution — percentage of incidents', offsetX, offsetY);
 
-        // Draw title
-        p.fill(0);
-        p.textSize(18);
-        p.textAlign(p.LEFT);
-        p.text('Severity and Visibility in Washington Accidents', offsetX, offsetY);
+        // --- Visibility integer histogram (1..10) - vertical bars showing percentage of incidents ---
+        var histX = offsetX;
+        var histY = offsetY + 250;
+        var histWidth = Math.min(width, 540);
+        var histHeight = Math.min(160, height - 260);
 
-        // Show max count to scale bars
-        var maxCount = Math.max(severityCount, visibilityCount, 2000);
-
-        // Severity section
-        p.fill(0);
-        p.textSize(14);
-        p.text('High Severity Incidents (Severity 3-4):', offsetX, offsetY + 40);
-        
-        p.fill(100);
-        p.textSize(12);
-        var severityPct = ((severityCount / totalRecords) * 100).toFixed(1);
-        p.text('Count: ' + severityCount + ' (' + severityPct + '% of ' + totalRecords + ' total)', offsetX, offsetY + 60);
-
-        // Draw severity bar (red)
-        p.fill(255, 100, 100);
-        p.stroke(200, 50, 50);
-        p.strokeWeight(2);
-        var severityBarWidth = Math.max(10, width * (severityCount / maxCount));
-        p.rect(offsetX, offsetY + 70, severityBarWidth, 40);
-
-        // Visibility section
+        p.push();
+        p.translate(histX, histY);
         p.fill(0);
         p.textSize(14);
-        p.text('Low Visibility Incidents (< 5 miles):', offsetX, offsetY + 140);
-        
-        p.fill(100);
-        p.textSize(12);
-        var visibilityPct = ((visibilityCount / totalRecords) * 100).toFixed(1);
-        p.text('Count: ' + visibilityCount + ' (' + visibilityPct + '% of ' + totalRecords + ' total)', offsetX, offsetY + 160);
+        p.textAlign(p.LEFT, p.TOP);
+        p.text('Visibility (mi) histogram (1–10): % of incidents', 0, 0);
 
-        // Draw visibility bar (blue)
-        p.fill(100, 100, 255);
-        p.stroke(50, 50, 200);
-        p.strokeWeight(2);
-        var visibilityBarWidth = Math.max(10, width * (visibilityCount / maxCount));
-        p.rect(offsetX, offsetY + 170, visibilityBarWidth, 40);
+        // Get counts; guard if not present
+        var hist = this.stats.visibilityHistogram || { counts: {}, totalWithVisibility: 0 };
+        var counts = hist.counts || {};
+        var totalWithVis = hist.totalWithVisibility || 0;
+        var totalRecordsAll = this.stats.totalRecords || 1;
 
-        // Add scale reference
-        p.fill(150);
+        // Prepare data for 1..10
+        var bars = [];
+        var maxPct = 0;
+        for (var v = 1; v <= 10; v++) {
+            var cnt = counts[v] || 0;
+            // percentage of ALL incidents (as requested)
+            var pctOfAll = (cnt / (totalRecordsAll || 1)) * 100;
+            bars.push({vis: v, count: cnt, pctAll: pctOfAll});
+            if (pctOfAll > maxPct) maxPct = pctOfAll;
+        }
+        if (maxPct <= 0) maxPct = 1;
+
+        // Draw axes for histogram
+        var marginLeft = 30;
+        var marginBottom = 28;
+        var axisX = marginLeft;
+        var axisY = histHeight - marginBottom;
+        var axisW = histWidth - marginLeft - 10;
+
+        p.stroke(0);
+        p.strokeWeight(1);
+        p.line(axisX, axisY, axisX + axisW, axisY); // x axis
+        p.line(axisX, axisY, axisX, 0); // y axis
+
+        // Y ticks (percent) - 0 to maxPct in nice steps
+        p.fill(0);
         p.textSize(10);
-        p.text('Bar width represents proportion of incidents', offsetX, offsetY + 230);
+        p.textAlign(p.RIGHT, p.CENTER);
+        var yTicks = 4;
+        for (var t = 0; t <= yTicks; t++) {
+            var yy = axisY - (t / yTicks) * (axisY - 10);
+            var pctLabel = ((t / yTicks) * maxPct).toFixed(1) + '%';
+            p.line(axisX - 4, yy, axisX, yy);
+            p.text(pctLabel, axisX - 6, yy);
+        }
+
+        // Draw bars
+        var barSlot = axisW / 10;
+        for (var i = 0; i < bars.length; i++) {
+            var b = bars[i];
+            var bx = axisX + i * barSlot + 4;
+            var bw = Math.max(4, barSlot - 8);
+            var bh = (b.pctAll / maxPct) * (axisY - 10);
+            var by = axisY - bh;
+
+            p.fill(100, 150, 255);
+            p.noStroke();
+            p.rect(bx, by, bw, bh);
+
+            // label x with visibility integer
+            p.fill(0);
+            p.textSize(10);
+            p.textAlign(p.CENTER, p.TOP);
+            p.text(b.vis, bx + bw / 2, axisY + 6);
+
+            // show percentage value above bar if space
+            p.textAlign(p.CENTER, p.BOTTOM);
+            p.text((b.pctAll).toFixed(2) + '%', bx + bw / 2, by - 4);
+        }
+
+        p.pop();
 
         p.pop();
     }
