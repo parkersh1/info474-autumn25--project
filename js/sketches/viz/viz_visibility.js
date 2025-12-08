@@ -2,8 +2,13 @@
   window.VizSeverityVisibility = {
     // Initialize properties directly on the object
     DATA_PATH: './data/US_Accidents_March23_WA.csv',
-    KEYS: ['Severity', 'Visibility'],
-    counts: { Severity: 0, Visibility: 0 },
+    stats: { 
+        severityCount: 0, 
+        visibilityCount: 0,
+        avgSeverity: 0,
+        avgVisibility: 0,
+        totalRecords: 0
+    },
     _fetchStarted: false,
     _dataLoaded: false,
 
@@ -40,16 +45,48 @@
         return { headers, rows: objs };
     },
 
-    computeCountsFromRows: function(rows) {
-        const counts = {};
-        this.KEYS.forEach(k => counts[k] = 0);
+    computeStatsFromRows: function(rows) {
+        const stats = { 
+            severityCount: 0, 
+            visibilityCount: 0,
+            avgSeverity: 0,
+            avgVisibility: 0,
+            totalRecords: rows.length
+        };
+        
+        let severitySum = 0;
+        let visibilitySum = 0;
+        let severityValid = 0;
+        let visibilityValid = 0;
+
         rows.forEach(r => {
-            this.KEYS.forEach(k => {
-                const raw = (r[k] === undefined || r[k] === null) ? '' : String(r[k]).trim();
-                if (raw.toUpperCase() === 'TRUE') counts[k]++;
-            });
+            // Count severity (high severity = 3 or 4)
+            const severityRaw = (r['Severity'] === undefined || r['Severity'] === null) ? '' : String(r['Severity']).trim();
+            if (severityRaw !== '') {
+                const severityNum = parseInt(severityRaw, 10);
+                if (!isNaN(severityNum) && severityNum >= 3) {
+                    stats.severityCount++;
+                }
+                severitySum += severityNum;
+                severityValid++;
+            }
+
+            // Count low visibility (visibility < 5 miles)
+            const visibilityRaw = (r['Visibility(mi)'] === undefined || r['Visibility(mi)'] === null) ? '' : String(r['Visibility(mi)']).trim();
+            if (visibilityRaw !== '') {
+                const visibilityNum = parseFloat(visibilityRaw);
+                if (!isNaN(visibilityNum) && visibilityNum < 5) {
+                    stats.visibilityCount++;
+                }
+                visibilitySum += visibilityNum;
+                visibilityValid++;
+            }
         });
-        return counts;
+
+        if (severityValid > 0) stats.avgSeverity = (severitySum / severityValid).toFixed(2);
+        if (visibilityValid > 0) stats.avgVisibility = (visibilitySum / visibilityValid).toFixed(2);
+
+        return stats;
     },
 
     startFetchIfNeeded: function() {
@@ -61,9 +98,9 @@
             return res.text();
         }).then(text => {
             const parsed = self.parseCSV(text);
-            self.counts = self.computeCountsFromRows(parsed.rows);
+            self.stats = self.computeStatsFromRows(parsed.rows);
             self._dataLoaded = true;
-            console.log('VizSeverityVisibility: Data loaded', self.counts);
+            console.log('VizSeverityVisibility: Data loaded', self.stats);
         }).catch(err => { 
             console.error('VizSeverityVisibility: fetch error', err);
         });
@@ -78,30 +115,58 @@
         var width = (manager.width || 600) - 40;
         var height = (manager.height || 400) - 60;
 
+        // Use current data or defaults while loading
+        var severityCount = this.stats.severityCount || 1500;
+        var visibilityCount = this.stats.visibilityCount || 1200;
+        var totalRecords = this.stats.totalRecords || 3000;
+
         // Draw title
         p.fill(0);
-        p.textSize(16);
-        p.text('Severity and Visibility Impact', offsetX, offsetY);
+        p.textSize(18);
+        p.textAlign(p.LEFT);
+        p.text('Severity and Visibility in Washington Accidents', offsetX, offsetY);
 
-        // Draw label for Severity
+        // Show max count to scale bars
+        var maxCount = Math.max(severityCount, visibilityCount, 2000);
+
+        // Severity section
         p.fill(0);
+        p.textSize(14);
+        p.text('High Severity Incidents (Severity 3-4):', offsetX, offsetY + 40);
+        
+        p.fill(100);
         p.textSize(12);
-        p.text('Severity: ' + this.counts['Severity'], offsetX, offsetY + 30);
+        var severityPct = ((severityCount / totalRecords) * 100).toFixed(1);
+        p.text('Count: ' + severityCount + ' (' + severityPct + '% of ' + totalRecords + ' total)', offsetX, offsetY + 60);
 
         // Draw severity bar (red)
-        p.fill(255, 0, 0);
-        var severityBarWidth = Math.max(0, width * (this.counts['Severity'] / 1000));
-        p.rect(offsetX, offsetY + 40, severityBarWidth, 30);
+        p.fill(255, 100, 100);
+        p.stroke(200, 50, 50);
+        p.strokeWeight(2);
+        var severityBarWidth = Math.max(10, width * (severityCount / maxCount));
+        p.rect(offsetX, offsetY + 70, severityBarWidth, 40);
 
-        // Draw label for Visibility
+        // Visibility section
         p.fill(0);
+        p.textSize(14);
+        p.text('Low Visibility Incidents (< 5 miles):', offsetX, offsetY + 140);
+        
+        p.fill(100);
         p.textSize(12);
-        p.text('Visibility: ' + this.counts['Visibility'], offsetX, offsetY + 100);
+        var visibilityPct = ((visibilityCount / totalRecords) * 100).toFixed(1);
+        p.text('Count: ' + visibilityCount + ' (' + visibilityPct + '% of ' + totalRecords + ' total)', offsetX, offsetY + 160);
 
         // Draw visibility bar (blue)
-        p.fill(0, 0, 255);
-        var visibilityBarWidth = Math.max(0, width * (this.counts['Visibility'] / 1000));
-        p.rect(offsetX, offsetY + 110, visibilityBarWidth, 30);
+        p.fill(100, 100, 255);
+        p.stroke(50, 50, 200);
+        p.strokeWeight(2);
+        var visibilityBarWidth = Math.max(10, width * (visibilityCount / maxCount));
+        p.rect(offsetX, offsetY + 170, visibilityBarWidth, 40);
+
+        // Add scale reference
+        p.fill(150);
+        p.textSize(10);
+        p.text('Bar width represents proportion of incidents', offsetX, offsetY + 230);
 
         p.pop();
     }
