@@ -209,17 +209,21 @@
             p.textAlign(p.CENTER, p.TOP);
             p.text('Visibility (miles)', axisX + axisW / 2, axisY + 28);
 
-            // Y ticks (percent) - 0 to maxPct in nice steps (no y-axis label)
+            // Y ticks (percent) - 0 to maxPct in nice steps
             p.fill(0);
             p.textSize(10);
             p.textAlign(p.RIGHT, p.CENTER);
             var yTicks = 4;
             for (var t = 0; t <= yTicks; t++) {
                 var yy = axisY - (t / yTicks) * (axisY - 10);
-                var pctLabel = ((t / yTicks) * maxPct).toFixed(1) + '%';
+
+                // Draw tick mark
                 p.line(axisX - 4, yy, axisX, yy);
+                var pctLabel = ((t / yTicks) * maxPct).toFixed(1) + '%';
                 p.text(pctLabel, axisX - 6, yy);
+
             }
+
 
             // Draw bars with traffic-light colors
             var barSlot = axisW / 10;
@@ -246,12 +250,12 @@
                 p.strokeWeight(0.5);
                 p.rect(bx, by, bw, bh, 4); // rounded corners
 
-                // label x with visibility integer
-                p.noStroke();
-                p.fill(30);
-                p.textSize(11);
+                // label x with visibility integer (replace 10 with "10+")
+                p.fill(0);
+                p.textSize(10);
                 p.textAlign(p.CENTER, p.TOP);
-                p.text(b.vis, bx + bw / 2, axisY + 6);
+                const label = (b.vis === 10) ? "10+" : b.vis;
+                p.text(label, bx + bw / 2, axisY + 6);
 
                 // show percentage value above bar if space
                 p.textAlign(p.CENTER, p.BOTTOM);
