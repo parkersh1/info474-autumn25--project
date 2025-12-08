@@ -96,6 +96,12 @@
             const gap = Math.max(6, Math.floor((innerH - n * barH) / (n + 1)));
             const maxVal = Math.max(1, dataPairs.reduce((m, d) => d.val > m ? d.val : m, 0));
 
+            // Title
+            p.fill(0);
+            p.textSize(18);
+            p.textAlign(p.CENTER, p.TOP);
+            p.text('Accident Counts by Traffic Feature Involvement', w / 2 + 70, 4);
+
             p.push();
             p.fill(30);
             p.textSize(16);
