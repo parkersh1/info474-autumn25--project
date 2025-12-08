@@ -2,7 +2,7 @@
     class VizScatter {
         constructor() {
             this.DATA_PATH = './data/US_Accidents_March23_WA.csv';
-            this.KEYS = ['Bump','Crossing','Give_Way','Junction','No_Exit','Railway','Roundabout','Station','Stop','Traffic_Calming','Traffic_Signal'];
+            this.KEYS = ['Bump', 'Crossing', 'Give_Way', 'Junction', 'No_Exit', 'Railway', 'Roundabout', 'Station', 'Stop', 'Traffic_Calming', 'Traffic_Signal'];
 
             this.counts = {};
             this.KEYS.forEach(k => this.counts[k] = 0);
@@ -17,13 +17,13 @@
             for (let i = 0; i < text.length; i++) {
                 const ch = text[i];
                 if (ch === '"') {
-                    if (inQuotes && text[i+1] === '"') { cur += '"'; i++; }
+                    if (inQuotes && text[i + 1] === '"') { cur += '"'; i++; }
                     else { inQuotes = !inQuotes; }
                 } else if (ch === ',' && !inQuotes) {
                     row.push(cur); cur = '';
                 } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
                     if (cur !== '' || row.length > 0) { row.push(cur); rows.push(row); row = []; cur = ''; }
-                    if (ch === '\r' && text[i+1] === '\n') i++;
+                    if (ch === '\r' && text[i + 1] === '\n') i++;
                 } else {
                     cur += ch;
                 }
@@ -65,7 +65,8 @@
             }).then(text => {
                 const parsed = this.parseCSV(text);
                 this.counts = this.computeCountsFromRows(parsed.rows);
-            }).catch(() => {r
+            }).catch(() => {
+                r
             });
         }
 
@@ -107,6 +108,7 @@
                 const barW = Math.round((item.val / maxVal) * innerW);
                 const displayKey = item.key.replace(/_/g, ' ');
 
+                // Label on the left
                 p.push();
                 p.fill(40);
                 p.textSize(12);
@@ -114,21 +116,27 @@
                 p.text(displayKey, margin.left - 8, y + barH / 2);
                 p.pop();
 
+                // Background bar
                 p.push();
                 p.fill(235);
                 p.rect(margin.left, y, innerW, barH, 3);
                 p.pop();
 
-                const tfrac = (n > 1) ? (i / (n - 1)) : 0;
-                const r = 70 + Math.round(120 * (1 - tfrac));
-                const g = 140 + Math.round(60 * tfrac);
-                const b = 200;
+                // --- Traffic-light palette ---
+                let col;
+                if (item.val >= 10000) {
+                    col = p.color(220, 60, 60);      // red
+                } else {
+                    col = p.color(240, 200, 70);     // yellow
+                } 
 
+                // Foreground bar
                 p.push();
-                p.fill(r, g, b, 220);
+                p.fill(col);
                 p.rect(margin.left, y, barW, barH, 3);
                 p.pop();
 
+                // Value label
                 p.push();
                 p.fill(20);
                 p.textSize(11);
