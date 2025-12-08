@@ -251,7 +251,7 @@
 
                 // decide whether to draw text inside or outside the bar
                 if (bw > 60) {
-                    p.fill(255);
+                    p.fill(0); 
                     p.textAlign(p.LEFT, p.CENTER);
                     p.text(absCount + ' ' + pctText, bx + 6, y);
                 } else {
