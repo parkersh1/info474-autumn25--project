@@ -18,7 +18,7 @@
             p.text('Visualizing the Road Ahead:', cx, cy);      
 
             p.textSize(42);
-            p.text(' How Everyday Driving Choices', cx, cy + 40);         
+            p.text('How Everyday Driving Choices', cx, cy + 40);         
              p.text('and Conditions Impact Safety', cx, cy + 80);   
             p.pop();
         }

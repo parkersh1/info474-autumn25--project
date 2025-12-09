@@ -1,6 +1,7 @@
 // viz_map.js
 // Severity-weighted heat map for Washington traffic incidents.
-// Cell color = average severity, opacity = crash density.
+// Color = typical severity, darkness = crash density, drawn over a WA outline.
+// Hovering over a cell shows count + average severity + approx. location.
 
 (function () {
     window.VizMap = {
@@ -16,7 +17,7 @@
             if (!manager._vizMap) manager._vizMap = { initialized: false };
             var M = manager._vizMap;
 
-            // WA bounds
+            // WA lat/lon bounds
             var lonMin = -125.0, lonMax = -116.9;
             var latMin = 45.5, latMax = 49.05;
 
@@ -29,7 +30,7 @@
             var boxW = w;
             var boxH = h;
 
-            // === 1. INITIALIZE / LOAD DATA ONCE =====================================
+            // ---------- 1. INITIALIZE / LOAD DATA ONCE ----------
             if (!M.initialized) {
                 M.initialized = true;
                 M.loading = true;
@@ -178,17 +179,31 @@
                             M.loading = false;
                             M.lastLoadMsg = 'Failed to load PapaParse from CDN.';
                         };
-                        document.head.appendChild(s);
+                            document.head.appendChild(s);
                     }
                 }
+
+                // state outline image (optional)
+                M.mapImg = null;
+                M.mapImgLoading = false;
+                M.mapImgFailed = false;
             }
 
-            // === 2. TITLE / LOADING STATES =========================================
+            // lazily load WA outline image if present
+            if (!M.mapImg && !M.mapImgLoading && !M.mapImgFailed && p.loadImage) {
+                M.mapImgLoading = true;
+                p.loadImage(
+                    'data/wa_outline.png',          // you provide this file
+                    function (img) { M.mapImg = img; M.mapImgLoading = false; },
+                    function () { M.mapImgFailed = true; M.mapImgLoading = false; }
+                );
+            }
 
+            // ---------- 2. TITLE / LOADING STATES ----------
             p.fill(0);
             p.textAlign(p.CENTER, p.TOP);
             p.textSize(16);
-            p.text('Where and how severely people crash in Washington',
+            p.text('Crash severity hotspots across Washington State',
                    boxX + boxW / 2, boxY + 6);
 
             if (M.loading) {
@@ -208,13 +223,11 @@
                 return;
             }
 
-            // === 3. MAP AREA (LOWER + LARGER) ======================================
-
+            // ---------- 3. MAP AREA (bigger, with outline) ----------
             var targetAspect = (lonMax - lonMin) / (latMax - latMin); // ~2.3
 
-            // allow more vertical space so map is taller
-            var maxMapW = boxW - 60;       // small horizontal margin
-            var maxMapH = boxH - 170;      // leave room for title + legend
+            var maxMapW = boxW - 60;   // horizontal margin
+            var maxMapH = boxH - 170;  // room for title + legend
 
             var innerW = maxMapW;
             var innerH = innerW / targetAspect;
@@ -223,12 +236,31 @@
                 innerW = innerH * targetAspect;
             }
 
-            // place map lower on the canvas
             var innerX = boxX + (boxW - innerW) / 2;
-            var innerY = boxY + 80;  // lower than before
+            var innerY = boxY + 80;   // push map down a bit below title
 
-            // === 4. DRAW HEAT CELLS ================================================
+            // store for hover calculations
+            M.innerX = innerX;
+            M.innerY = innerY;
+            M.innerW = innerW;
+            M.innerH = innerH;
 
+            // draw WA outline background if available
+            if (M.mapImg) {
+                p.push();
+                p.imageMode(p.CORNER);
+                p.tint(230); // light, so heatmap stands out
+                p.image(M.mapImg, innerX, innerY, innerW, innerH);
+                p.noTint();
+                p.pop();
+            } else {
+                // fallback light rectangle
+                p.noStroke();
+                p.fill(245);
+                p.rect(innerX, innerY, innerW, innerH, 6);
+            }
+
+            // ---------- 4. DRAW HEAT CELLS ----------
             var cellW = innerW / GRID_COLS;
             var cellH = innerH / GRID_ROWS;
             var maxCount = Math.max(1, M.maxCount || 1);
@@ -250,8 +282,7 @@
                     var baseCol = colorForSeverity(avgSev);
                     var densityNorm = cell.count / maxCount;
 
-                    // brighter / less transparent
-                    var alpha = 150 + Math.pow(densityNorm, 0.4) * 105;
+                    var alpha = 130 + Math.pow(densityNorm, 0.4) * 125;
                     if (alpha > 255) alpha = 255;
 
                     p.noStroke();
@@ -262,10 +293,23 @@
                 }
             }
 
-            // === 5. LEGEND BELOW MAP ===============================================
+            // ---------- 5. SIMPLE LAT/LON "AXES" ----------
+            function fmtLat(v) { return v.toFixed(1) + '°N'; }
+            function fmtLon(v) { return Math.abs(v).toFixed(1) + '°W'; }
 
+            p.fill(60);
+            p.textSize(10);
+            p.textAlign(p.RIGHT, p.CENTER);
+            p.text(fmtLat(latMax), innerX - 4, innerY + 6);
+            p.text(fmtLat(latMin), innerX - 4, innerY + innerH - 6);
+
+            p.textAlign(p.CENTER, p.TOP);
+            p.text(fmtLon(lonMin), innerX + 10, innerY + innerH + 4);
+            p.text(fmtLon(lonMax), innerX + innerW - 10, innerY + innerH + 4);
+
+            // ---------- 6. LEGEND BELOW MAP ----------
             var legendX = innerX;
-            var legendY = innerY + innerH + 20;
+            var legendY = innerY + innerH + 24;
 
             p.textAlign(p.LEFT, p.TOP);
             p.textSize(12);
@@ -291,8 +335,52 @@
             var ly2 = ly + legendItems.length * 16 + 10;
             p.fill(0);
             p.textSize(11);
-            p.text('Darker color = more crashes\nin that area of Washington',
+            p.text('Darker color = more crashes in that part of Washington',
                    legendX, ly2);
+
+            // ---------- 7. HOVER TOOLTIP ----------
+            var mx = p.mouseX;
+            var my = p.mouseY;
+            if (mx >= innerX && mx <= innerX + innerW &&
+                my >= innerY && my <= innerY + innerH) {
+
+                var gx = Math.floor((mx - innerX) / cellW);
+                var gy = GRID_ROWS - 1 - Math.floor((my - innerY) / cellH); // invert
+
+                if (gx >= 0 && gx < GRID_COLS && gy >= 0 && gy < GRID_ROWS) {
+                    var cell = M.grid[gy][gx];
+                    if (cell && cell.count > 0) {
+                        var avg = M.avgSevGrid[gy][gx] || 0;
+
+                        // approximate lat/lon for this cell center
+                        var lon = lonMin + (gx + 0.5) / GRID_COLS * (lonMax - lonMin);
+                        var lat = latMin + (gy + 0.5) / GRID_ROWS * (latMax - latMin);
+
+                        var info = [
+                            'Crashes in this area: ' + cell.count,
+                            'Avg severity: ' + avg.toFixed(2),
+                            'Approx location: ' +
+                                fmtLat(lat) + ', ' + fmtLon(lon)
+                        ];
+
+                        var boxW2 = 230;
+                        var boxH2 = 60;
+                        var tx = mx + 16;
+                        var ty = my - boxH2 / 2;
+                        if (tx + boxW2 > boxX + boxW) tx = mx - boxW2 - 16;
+
+                        p.push();
+                        p.noStroke();
+                        p.fill(255, 245);
+                        p.rect(tx, ty, boxW2, boxH2, 6);
+                        p.fill(0);
+                        p.textAlign(p.LEFT, p.TOP);
+                        p.textSize(11);
+                        p.text(info.join('\n'), tx + 8, ty + 6);
+                        p.pop();
+                    }
+                }
+            }
 
             p.pop();
         }
