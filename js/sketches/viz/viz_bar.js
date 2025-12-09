@@ -275,8 +275,6 @@
             p.textSize(12);
             var cityLabel = V.selectedCity || 'All WA';
             p.fill(0);
-            p.text('Selected: ' + cityLabel, left + 20 + barMaxW, top);
-
             p.pop();
         }
     };
