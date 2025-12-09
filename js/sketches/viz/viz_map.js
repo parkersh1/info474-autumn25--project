@@ -193,7 +193,7 @@
             if (!M.mapImg && !M.mapImgLoading && !M.mapImgFailed && p.loadImage) {
                 M.mapImgLoading = true;
                 p.loadImage(
-                    'img/wa_outline.png',          // you provide this file
+                    'data/wa_outline.png',          // you provide this file
                     function (img) { M.mapImg = img; M.mapImgLoading = false; },
                     function () { M.mapImgFailed = true; M.mapImgLoading = false; }
                 );
