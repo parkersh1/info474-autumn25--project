@@ -121,7 +121,7 @@
                 p.fill(30);
                 p.textSize(13);
                 p.textAlign(p.LEFT, p.CENTER);
-                p.text(`${d.condition} (${d.avgSeverity.toFixed(2)})`, offsetX + barW + 12, y + barHeight / 2);
+                p.text(`${d.condition} `, offsetX + barW + 12, y + barHeight / 2);
 
                 // Hover effect: highlight bar
                 if (p.mouseX >= offsetX && p.mouseX <= offsetX + barW &&
