@@ -3,7 +3,7 @@
     draw: function (p, manager, ai, progress) {
       p.push();
 
-      // size defaults
+      // canvas defaults
       manager.width = manager.width || 700;
       manager.height = manager.height || 500;
       const offsetX = manager.offsetX || 60;
@@ -11,9 +11,9 @@
       const chartWidth = manager.width - 2 * offsetX;
       const chartHeight = manager.height - 2 * offsetY;
 
-      // --------- LOAD & AGGREGATE DATA ONCE ----------
-      if (!window._waFatalitiesLoaded && !window._waFatalitiesLoading) {
-        window._waFatalitiesLoading = true;
+      // ---------- LOAD & AGGREGATE (ONCE) ----------
+      if (!window._waFatalitiesMonthlyLoaded && !window._waFatalitiesMonthlyLoading) {
+        window._waFatalitiesMonthlyLoading = true;
         console.log('[VizFatalitiesByYear] fetching data/accident.csv');
 
         fetch('data/accident.csv')
@@ -22,29 +22,32 @@
             const lines = text.trim().split(/\r?\n/);
             if (!lines.length) {
               console.warn('[VizFatalitiesByYear] empty CSV');
-              window._waFatalitiesData = [];
-              window._waFatalitiesLoaded = true;
-              window._waFatalitiesLoading = false;
+              window._waFatalitiesMonthlyData = [];
+              window._waFatalitiesMonthlyLoaded = true;
+              window._waFatalitiesMonthlyLoading = false;
               return;
             }
 
-            // headers exactly as you pasted
             const headers = lines[0].split(',');
-            const idxSTATE     = headers.indexOf('STATE');
-            const idxSTATENAME = headers.indexOf('STATENAME');
-            const idxYEAR      = headers.indexOf('YEAR');
-            const idxFATALS    = headers.indexOf('FATALS');
+            const idxSTATE      = headers.indexOf('STATE');
+            const idxSTATENAME  = headers.indexOf('STATENAME');
+            const idxYEAR       = headers.indexOf('YEAR');
+            const idxMONTH      = headers.indexOf('MONTH');
+            const idxMONTHNAME  = headers.indexOf('MONTHNAME');
+            const idxFATALS     = headers.indexOf('FATALS');
 
             console.log('[VizFatalitiesByYear] header indices', {
-              idxSTATE, idxSTATENAME, idxYEAR, idxFATALS
+              idxSTATE, idxSTATENAME, idxYEAR, idxMONTH, idxMONTHNAME, idxFATALS
             });
 
-            const yearMap = Object.create(null);
-            let total = 0;
+            const monthlyByYear = {};     // { [year]: { [month]: totalFatals } }
+            const totalByYear = {};       // { [year]: totalFatals }
+            const monthNames = {};        // { [month]: "January" }
 
             for (let i = 1; i < lines.length; i++) {
-              if (!lines[i]) continue;
-              const row = lines[i].split(',');
+              const line = lines[i];
+              if (!line) continue;
+              const row = line.split(',');
 
               const stateCode = (row[idxSTATE] || '').trim();
               const stateName = (row[idxSTATENAME] || '').trim();
@@ -56,44 +59,83 @@
               if (!isWA) continue;
 
               const yearRaw = (row[idxYEAR] || '').trim();
+              const monthRaw = (row[idxMONTH] || '').trim();
+              const monthName = (row[idxMONTHNAME] || '').trim();
+
               const yearNum = parseInt(yearRaw, 10);
-              if (isNaN(yearNum)) continue;
+              const monthNum = parseInt(monthRaw, 10);
+
+              if (isNaN(yearNum) || isNaN(monthNum)) continue;
 
               const fatRaw = (row[idxFATALS] || '').trim();
               const fatNum = fatRaw === '' ? 0 : parseFloat(fatRaw);
               const fatVal = isNaN(fatNum) ? 0 : fatNum;
 
-              yearMap[yearNum] = (yearMap[yearNum] || 0) + fatVal;
-              total += fatVal;
+              if (!monthlyByYear[yearNum]) monthlyByYear[yearNum] = {};
+              monthlyByYear[yearNum][monthNum] =
+                (monthlyByYear[yearNum][monthNum] || 0) + fatVal;
+
+              totalByYear[yearNum] = (totalByYear[yearNum] || 0) + fatVal;
+
+              if (monthName && !monthNames[monthNum]) {
+                monthNames[monthNum] = monthName;
+              }
             }
 
-            const result = Object.keys(yearMap)
-              .map(y => ({ year: +y, fatalities: yearMap[y] }))
-              .sort((a, b) => a.year - b.year);
+            const years = Object.keys(monthlyByYear).map(Number);
+            if (!years.length) {
+              console.warn('[VizFatalitiesByYear] no WA rows found');
+              window._waFatalitiesMonthlyData = [];
+              window._waFatalitiesMonthlyLoaded = true;
+              window._waFatalitiesMonthlyLoading = false;
+              return;
+            }
 
-            console.log('[VizFatalitiesByYear] aggregated years:', result);
+            // Use the latest year found (e.g., 2022)
+            const targetYear = Math.max(...years);
+            const perMonth = monthlyByYear[targetYear];
 
-            window._waFatalitiesData = result;
-            window._waFatalitiesTotal = total;
-            window._waFatalitiesLoaded = true;
-            window._waFatalitiesLoading = false;
+            const result = [];
+            let maxF = 0;
+            for (let m = 1; m <= 12; m++) {
+              const val = perMonth ? (perMonth[m] || 0) : 0;
+              maxF = Math.max(maxF, val);
+              result.push({
+                month: m,
+                monthName: monthNames[m] || String(m),
+                fatalities: val
+              });
+            }
+
+            console.log('[VizFatalitiesByYear] monthly for year', targetYear, result);
+
+            window._waFatalitiesMonthlyData = result;
+            window._waFatalitiesMonthlyMax = maxF || 1;
+            window._waFatalitiesMonthlyTotal = totalByYear[targetYear] || 0;
+            window._waFatalitiesMonthlyYear = targetYear;
+            window._waFatalitiesMonthlyLoaded = true;
+            window._waFatalitiesMonthlyLoading = false;
           })
           .catch(err => {
             console.error('[VizFatalitiesByYear] fetch/parse error:', err);
-            window._waFatalitiesData = [];
-            window._waFatalitiesTotal = 0;
-            window._waFatalitiesLoaded = true;
-            window._waFatalitiesLoading = false;
+            window._waFatalitiesMonthlyData = [];
+            window._waFatalitiesMonthlyMax = 1;
+            window._waFatalitiesMonthlyTotal = 0;
+            window._waFatalitiesMonthlyYear = null;
+            window._waFatalitiesMonthlyLoaded = true;
+            window._waFatalitiesMonthlyLoading = false;
           });
       }
 
-      const data = window._waFatalitiesData || [];
+      const data = window._waFatalitiesMonthlyData || [];
+      const maxF = window._waFatalitiesMonthlyMax || 1;
+      const year = window._waFatalitiesMonthlyYear;
 
-      // --------- DRAWING ----------
+      // ---------- DRAW ----------
       p.clear();
       p.background(255);
 
-      if (!window._waFatalitiesLoaded) {
+      if (!window._waFatalitiesMonthlyLoaded) {
         p.fill(0);
         p.textAlign(p.CENTER, p.CENTER);
         p.textSize(14);
@@ -102,7 +144,7 @@
         return;
       }
 
-      if (!data.length) {
+      if (!data.length || !year) {
         p.fill(0);
         p.textAlign(p.CENTER, p.CENTER);
         p.textSize(14);
@@ -111,10 +153,9 @@
         return;
       }
 
-      const maxF = data.reduce((m, d) => Math.max(m, d.fatalities), 0) || 1;
-      const barCount = data.length;
-      const barGap = Math.max(2, Math.floor(chartWidth / (barCount * 20)));
-      const barW = Math.max(2, (chartWidth - (barCount - 1) * barGap) / barCount);
+      const barCount = data.length; // 12
+      const barGap = Math.max(4, Math.floor(chartWidth / (barCount * 10)));
+      const barW = Math.max(8, (chartWidth - (barCount - 1) * barGap) / barCount);
 
       // grid
       p.stroke(230);
@@ -135,36 +176,44 @@
         p.text(String(val), offsetX - 8, y);
       }
 
-      // bars
+      // bars + labels
       data.forEach((d, i) => {
         const x = offsetX + i * (barW + barGap);
         const barH = p.map(d.fatalities, 0, maxF, 0, chartHeight);
         const y = offsetY + (chartHeight - barH);
 
+        // bar
         p.noStroke();
         p.fill(70, 130, 180);
         p.rect(x, y, barW, barH);
 
-        // year label
-        p.push();
-        p.translate(x + barW / 2, offsetY + chartHeight + 10);
+        // numeric label on top of bar
         p.fill(0);
-        p.textAlign(p.CENTER, p.TOP);
+        p.textAlign(p.CENTER, p.BOTTOM);
         p.textSize(10);
-        p.text(String(d.year), 0, 0);
-        p.pop();
+        p.text(String(Math.round(d.fatalities)), x + barW / 2, y - 2);
+
+        // month label
+        p.textAlign(p.CENTER, p.TOP);
+        p.text(d.monthName, x + barW / 2, offsetY + chartHeight + 4);
       });
 
-      // title + total
+      // title
       p.fill(0);
       p.textAlign(p.CENTER, p.TOP);
       p.textSize(18);
-      p.text('Washington Fatalities per Year (accident.csv)', manager.width / 2, 10);
-
-      p.textAlign(p.RIGHT, p.TOP);
-      p.textSize(12);
       p.text(
-        `Total fatalities (WA): ${Math.round(window._waFatalitiesTotal || 0)}`,
+        'Washington Fatalities per Month (' + year + ', accident.csv)',
+        manager.width / 2,
+        10
+      );
+
+      // total
+      p.textSize(12);
+      p.textAlign(p.RIGHT, p.TOP);
+      p.text(
+        'Total fatalities (WA ' + year + '): ' +
+          Math.round(window._waFatalitiesMonthlyTotal || 0),
         manager.width - 10,
         10
       );
