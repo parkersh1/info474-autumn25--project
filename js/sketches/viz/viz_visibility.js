@@ -1,6 +1,7 @@
 (function () {
   window.VizSeverityVisibility = window.VizSeverityVisibility || {
-    DATA_PATH: './data/US_Accidents_March23_WA.csv',
+    DATA_PATH: 'data/accident.csv',
+
     parseCSV: function (text) {
       const rows = [];
       let cur = '', row = [], inQuotes = false;
@@ -20,6 +21,7 @@
       }
       if (cur !== '' || row.length > 0) { row.push(cur); rows.push(row); }
       if (rows.length === 0) return { headers: [], rows: [] };
+
       const headers = rows[0].map(s => s.trim());
       const objs = [];
       for (let r = 1; r < rows.length; r++) {
@@ -33,6 +35,7 @@
       }
       return { headers, rows: objs };
     },
+
     fetchAndParseCSV: function () {
       if (this._fetchPromise) return this._fetchPromise;
       const path = this.DATA_PATH || 'data/accident.csv';
@@ -46,6 +49,9 @@
           const parsed = this.parseCSV(text);
           this._parsedRows = parsed.rows;
           console.log('[VizSeverityVisibility] parsed rows:', this._parsedRows.length);
+          if (this._parsedRows.length > 0) {
+            console.log('[VizSeverityVisibility] first row keys:', Object.keys(this._parsedRows[0]));
+          }
           return this._parsedRows;
         })
         .catch(err => {
@@ -60,11 +66,11 @@
   window.viz_fatalities_by_year = {
     setData: function (manager, rawData) {
       console.log('[viz_fatalities_by_year] setData called. rawData type:', typeof rawData);
+
       function parseCSVWithUserParser(text) {
         if (window.VizSeverityVisibility && typeof window.VizSeverityVisibility.parseCSV === 'function') {
           return window.VizSeverityVisibility.parseCSV(text).rows;
         }
-    
         const lines = text.split(/\r?\n/).filter(Boolean);
         if (lines.length === 0) return [];
         const headers = lines.shift().split(',').map(h => h.trim());
@@ -83,7 +89,6 @@
         if (window.VizSeverityVisibility && typeof window.VizSeverityVisibility.fetchAndParseCSV === 'function') {
           return window.VizSeverityVisibility.fetchAndParseCSV();
         }
-        // fallback fetch
         const path = 'data/accident.csv';
         const resp = await fetch(path);
         const text = await resp.text();
@@ -92,36 +97,62 @@
 
       return getRows().then(rows => {
         console.log('[viz_fatalities_by_year] rows loaded:', rows ? rows.length : 0);
-        manager._rawRows = rows || [];
+        if (!rows || rows.length === 0) {
+          manager.fatalitiesByYear = [];
+          manager._maxFatalities = 0;
+          manager._totalFatalitiesWA = 0;
+          return;
+        }
 
-        // robust key detection
-        const keys = rows.length ? Object.keys(rows[0]) : [];
-        const stateKey = keys.find(k => k.toLowerCase() === 'state') || 'STATE';
-        const stateNameKey = keys.find(k => k.toLowerCase() === 'statename') || 'STATENAME';
-        const yearKey = keys.find(k => k.toLowerCase() === 'year') || 'YEAR';
-        const fatKey = keys.find(k => k.toLowerCase().includes('fatal')) || 'FATALS';
+        const keys = Object.keys(rows[0] || {});
+        const lowerKeys = keys.map(k => k.toLowerCase());
+
+        const stateKey = keys[lowerKeys.findIndex(k => k === 'state')] || 'STATE';
+        const stateNameKey = keys[lowerKeys.findIndex(k => k === 'statename')] || null;
+        const yearKey = keys[lowerKeys.findIndex(k => k === 'year')] || 'YEAR';
+        const fatKey =
+          keys[lowerKeys.findIndex(k => k.includes('fatal'))] ||
+          keys[lowerKeys.findIndex(k => k.includes('fat'))] ||
+          'FATALS';
+
         console.log('[viz_fatalities_by_year] detected keys:', { stateKey, stateNameKey, yearKey, fatKey });
 
-        // filter WA and aggregate
         const yearMap = Object.create(null);
         let total = 0;
-        rows.forEach(r => {
-          const stateName = (r[stateNameKey] || '').trim();
-          const stateCode = (r[stateKey] || '').trim();
-          const isWA = (stateName.toLowerCase() === 'washington') || (stateCode === '53');
-          if (!isWA) return;
+        let waRows = 0;
 
-          const yearRaw = (r[yearKey] || '').trim();
+        rows.forEach(r => {
+          let isWA = false;
+
+          if (stateNameKey && r[stateNameKey] != null) {
+            const s = String(r[stateNameKey]).trim().toLowerCase();
+            if (s === 'washington') isWA = true;
+          }
+
+          if (!isWA && r[stateKey] != null) {
+            const raw = String(r[stateKey]).trim();
+            const low = raw.toLowerCase();
+            if (low === 'wa') isWA = true;
+            const num = parseInt(raw, 10);
+            if (num === 53) isWA = true;
+          }
+
+          if (!isWA) return;
+          waRows++;
+
+          const yearRaw = (r[yearKey] || '').toString().trim();
           const yearNum = parseInt(yearRaw, 10);
           if (isNaN(yearNum)) return;
 
-          const fatRaw = (r[fatKey] || '').trim();
+          const fatRaw = (r[fatKey] || '').toString().trim();
           const fatNum = fatRaw === '' ? 0 : parseFloat(fatRaw);
           const fatVal = isNaN(fatNum) ? 0 : fatNum;
 
           yearMap[yearNum] = (yearMap[yearNum] || 0) + fatVal;
           total += fatVal;
         });
+
+        console.log('[viz_fatalities_by_year] WA rows found:', waRows);
 
         const arr = Object.keys(yearMap).map(y => ({ year: +y, fatalities: yearMap[y] }));
         arr.sort((a, b) => a.year - b.year);
@@ -132,7 +163,6 @@
         console.log('[viz_fatalities_by_year] aggregated years:', manager.fatalitiesByYear);
       }).catch(err => {
         console.error('[viz_fatalities_by_year] setData error:', err);
-        // attach empty so draw shows message
         manager.fatalitiesByYear = [];
         manager._maxFatalities = 0;
         manager._totalFatalitiesWA = 0;
@@ -140,6 +170,11 @@
     },
 
     draw: function (p, manager, activeIndex, progress) {
+      if (!manager._fatalInit) {
+        manager._fatalInit = true;
+        window.viz_fatalities_by_year.setData(manager);
+      }
+
       const data = manager.fatalitiesByYear;
       p.clear();
       p.background(255);
@@ -148,7 +183,7 @@
         p.fill(0);
         p.textAlign(p.CENTER, p.CENTER);
         p.textSize(14);
-        p.text('Renderer initialized but data is undefined', p.width / 2, p.height / 2);
+        p.text('Loading Washington fatality data…', p.width / 2, p.height / 2);
         return;
       }
 
@@ -156,11 +191,14 @@
         p.fill(0);
         p.textAlign(p.CENTER, p.CENTER);
         p.textSize(14);
-        p.text('No Washington rows found or data still loading.\nCheck console for errors and confirm CSV path/headers.', p.width / 2, p.height / 2);
+        p.text(
+          'No Washington rows found or data still loading.\n' +
+          'Check console for CSV path and detected column names.',
+          p.width / 2, p.height / 2
+        );
         return;
       }
 
-      // draw chart (simple)
       const margin = 60;
       const legendArea = 80;
       const chartW = p.width - margin * 2;
@@ -170,7 +208,7 @@
       const barGap = Math.max(2, Math.floor(chartW / (barCount * 20)));
       const barW = Math.max(2, (chartW - (barCount - 1) * barGap) / barCount);
 
-      // grid
+      // grid lines
       p.stroke(230);
       for (let i = 0; i <= 4; i++) {
         const y = margin + (chartH * i) / 4;
@@ -205,30 +243,19 @@
       p.textAlign(p.RIGHT, p.TOP);
       p.text(`Total fatalities (WA): ${Math.round(manager._totalFatalitiesWA || 0)}`, p.width - 12, 8);
 
-      // legend (colored boxes)
+      // legend
       const legendX = margin;
       const legendY = margin + chartH + 40;
       const boxSize = 14;
       const gap = 8;
-      const itemSpacing = 220;
 
       p.noStroke();
-      p.fill(60, 180, 75);
+      p.fill(70, 130, 180);
       p.rect(legendX, legendY - boxSize / 2, boxSize, boxSize);
       p.fill(0);
       p.textAlign(p.LEFT, p.CENTER);
       p.textSize(12);
-      p.text('Low Severity (<2)', legendX + boxSize + gap, legendY);
-
-      p.fill(250, 200, 60);
-      p.rect(legendX + itemSpacing, legendY - boxSize / 2, boxSize, boxSize);
-      p.fill(0);
-      p.text('Medium Severity (2–3)', legendX + itemSpacing + boxSize + gap, legendY);
-
-      p.fill(220, 60, 60);
-      p.rect(legendX + itemSpacing * 2, legendY - boxSize / 2, boxSize, boxSize);
-      p.fill(0);
-      p.text('High Severity (>3)', legendX + itemSpacing * 2 + boxSize + gap, legendY);
+      p.text('Annual fatality count (Washington)', legendX + boxSize + gap, legendY);
     }
   };
 })();
