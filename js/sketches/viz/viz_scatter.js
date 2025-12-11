@@ -124,9 +124,9 @@
                 p.rect(margin.left, y, innerW, barH, 3);
                 p.pop();
 
-                const topR = 70 + Math.round(120 * (1 - 0));
-                const topG = 140 + Math.round(60 * 0);
-                const topB = 200;
+                const topR = 255;
+                const topG = 192;
+                const topB = 103;
 
                 p.push();
                 p.fill(topR, topG, topB, 220);
