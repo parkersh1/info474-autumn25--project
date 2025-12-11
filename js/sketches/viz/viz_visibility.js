@@ -97,11 +97,6 @@
                         const vInt = Math.round(visNum2);
                         visCounts[vInt] = (visCounts[vInt] || 0) + 1;
                         visTotal++;
-                        // const vInt = Math.round(visNum2);
-                        // if (vInt >= 1 && vInt <= 9) {
-                        //     visCounts[vInt] = (visCounts[vInt] || 0) + 1;
-                        //     visTotal++;
-                        // }
                     }
                 }
             });
@@ -150,12 +145,12 @@
 
             var offsetX = manager.offsetX || 20;
             var offsetY = manager.offsetY || 150;
-            var width = (manager.width || 600);
+            var width = (manager.width || 600) ;
             var height = (manager.height || 400);
 
 
             // --- Visibility integer histogram (1..10) - vertical bars showing percentage of incidents ---
-            var histWidth = Math.floor(width); // 95% of canvas width
+            var histWidth = Math.floor(width ); // 95% of canvas width
             var histHeight = Math.min(320, height); // taller for more impact
             var histX = offsetX + Math.floor((width - histWidth) / 2); // center horizontally
             var histY = offsetY + 40;
@@ -185,7 +180,7 @@
                 var cnt = counts[v] || 0;
                 // percentage of ALL incidents (as requested)
                 var pctOfAll = (cnt / (totalRecordsAll || 1)) * 100;
-                bars.push({ vis: v, count: cnt, pctAll: pctOfAll });
+                bars.push({vis: v, count: cnt, pctAll: pctOfAll});
                 if (pctOfAll > maxPct) maxPct = pctOfAll;
             }
             if (maxPct <= 0) maxPct = 1;
@@ -209,21 +204,17 @@
             p.textAlign(p.CENTER, p.TOP);
             p.text('Visibility (miles)', axisX + axisW / 2, axisY + 28);
 
-            // Y ticks (percent) - 0 to maxPct in nice steps
+            // Y ticks (percent) - 0 to maxPct in nice steps (no y-axis label)
             p.fill(0);
             p.textSize(10);
             p.textAlign(p.RIGHT, p.CENTER);
             var yTicks = 4;
             for (var t = 0; t <= yTicks; t++) {
                 var yy = axisY - (t / yTicks) * (axisY - 10);
-
-                // Draw tick mark
-                p.line(axisX - 4, yy, axisX, yy);
                 var pctLabel = ((t / yTicks) * maxPct).toFixed(1) + '%';
+                p.line(axisX - 4, yy, axisX, yy);
                 p.text(pctLabel, axisX - 6, yy);
-
             }
-
 
             // Draw bars with traffic-light colors
             var barSlot = axisW / 10;
@@ -250,12 +241,12 @@
                 p.strokeWeight(0.5);
                 p.rect(bx, by, bw, bh, 4); // rounded corners
 
-                // label x with visibility integer (replace 10 with "10+")
-                p.fill(0);
-                p.textSize(10);
+                // label x with visibility integer
+                p.noStroke();
+                p.fill(30);
+                p.textSize(11);
                 p.textAlign(p.CENTER, p.TOP);
-                const label = (b.vis === 10) ? "10+" : b.vis;
-                p.text(label, bx + bw / 2, axisY + 6);
+                p.text(b.vis, bx + bw / 2, axisY + 6);
 
                 // show percentage value above bar if space
                 p.textAlign(p.CENTER, p.BOTTOM);

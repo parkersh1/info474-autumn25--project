@@ -80,7 +80,7 @@
             p.textSize(14);
             p.textAlign(p.CENTER, p.TOP);
             p.text('(Hover over bars for details)', manager.width / 2, offsetY - 10);
-             p.text("Severity is graded from 1–4 (1=lowest, 4=highest)", manager.width / 2, offsetY - 10 + 20);
+            p.text("Severity is graded from 1–4 (1=lowest, 4=highest)", manager.width / 2, offsetY - 10 + 20);
 
 
 
@@ -103,12 +103,14 @@
                 const y = test + i * (barHeight + 8);
                 const barW = (d.avgSeverity / maxSeverity) * chartWidth;
 
-                // Map severity to traffic-light colors
-                //if (d.avgSeverity >= 3 && d.avgSeverity <= 4) {
-                    //col = p.color(220, 60, 60); // red
-                //} else {
+                //Map severity to traffic-light colors
+                if (d.avgSeverity >= 4) {
+                    col = p.color(220, 60, 60); // red
+                } else if (d.avgSeverity >= 2 && d.avgSeverity >= 3) {
                     col = p.color(240, 200, 70); // yellow
-               // }
+                } else {
+                    col = p.color(100, 220, 100); // green
+                }
 
                 // Bar styling
                 p.fill(col);
@@ -133,6 +135,37 @@
                     p.rect(offsetX, y, barW, barHeight, 6);
                 }
             }
+            // draw legend with colored boxes
+            const legendX = offsetX;                 // left margin for legend
+            const legendY = p.height - 40;           // y position for legend (adjust to move up/down)
+            const boxSize = 14;                      // size of the color box
+            const gap = 10;                          // gap between box and label
+            const itemSpacing = 180;                 // horizontal spacing between legend items
+
+            p.push();
+            p.textSize(12);
+            p.textAlign(p.LEFT, p.CENTER);
+
+            // Item 1: Low severity (green)
+            p.noStroke();
+            p.fill(60, 180, 75);                     // green
+            p.rect(legendX, legendY - boxSize / 2, boxSize, boxSize);
+            p.fill(0);
+            p.text("Low Severity", legendX + boxSize + gap, legendY);
+
+            // Item 2: Medium severity (yellow)
+            p.fill(250, 200, 60);                    // yellow
+            p.rect(legendX + itemSpacing, legendY - boxSize / 2, boxSize, boxSize);
+            p.fill(0);
+            p.text("Medium Severity", legendX + itemSpacing + boxSize + gap, legendY);
+
+            // Item 3: High severity (red)
+            p.fill(220, 60, 60);                     // red
+            p.rect(legendX + itemSpacing * 2, legendY - boxSize / 2, boxSize, boxSize);
+            p.fill(0);
+            p.text("High Severity", legendX + itemSpacing * 2 + boxSize + gap, legendY);
+
+            p.pop();
 
 
             // Draw tooltip if hovering
