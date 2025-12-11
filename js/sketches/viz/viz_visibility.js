@@ -67,15 +67,17 @@
 
                             if (isNaN(yearNum) || isNaN(monthNum)) continue;
 
-                            // const fatRaw = (row[idxFATALS] || '').trim();
-                            // const fatNum = fatRaw === '' ? 0 : parseFloat(fatRaw);
-                            // const fatVal = isNaN(fatNum) ? 0 : fatNum;
+                            const fatRaw = (row[idxFATALS] || '').trim();
+                            const fatNum = fatRaw === '' ? 0 : parseFloat(fatRaw);
+                            const fatVal = isNaN(fatNum) ? 0 : fatNum;
 
-                            // if (!monthlyByYear[yearNum]) monthlyByYear[yearNum] = {};
-                            // monthlyByYear[yearNum][monthNum] =
-                            //     (monthlyByYear[yearNum][monthNum] || 0) + fatVal;
+                            if (!monthlyByYear[yearNum]) monthlyByYear[yearNum] = {};
+                            monthlyByYear[yearNum][monthNum] =
+                                (monthlyByYear[yearNum][monthNum] || 0) + fatVal;
 
-                            // totalByYear[yearNum] = (totalByYear[yearNum] || 0) + fatVal;
+                            totalByYear[yearNum] = (totalByYear[yearNum] || 0) + fatVal;
+
+
 //                             const fatRaw = (row[idxFATALS] || '').trim();
 // const fatNum = fatRaw === '' ? 0 : parseFloat(fatRaw);
 // const fatFlag = fatNum === 1 ? 2 : 0;   // 2 = fatal, 1 = non-fatal
