@@ -126,7 +126,7 @@
 
                 const topR = 255;
                 const topG = 192;
-                const topB = 103;
+                const topB = 102;
 
                 p.push();
                 p.fill(topR, topG, topB, 220);
