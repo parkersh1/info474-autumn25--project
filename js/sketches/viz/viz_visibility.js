@@ -1,268 +1,234 @@
 (function () {
-    window.VizSeverityVisibility = {
-        // Initialize properties directly on the object
-        DATA_PATH: './data/US_Accidents_March23_WA.csv',
-        stats: {
-            severityCount: 0,
-            visibilityCount: 0,
-            avgSeverity: 0,
-            avgVisibility: 0,
-            totalRecords: 0
-        },
-        _fetchStarted: false,
-        _dataLoaded: false,
-
-        parseCSV: function (text) {
-            const rows = [];
-            let cur = '', row = [], inQuotes = false;
-            for (let i = 0; i < text.length; i++) {
-                const ch = text[i];
-                if (ch === '"') {
-                    if (inQuotes && text[i + 1] === '"') { cur += '"'; i++; }
-                    else { inQuotes = !inQuotes; }
-                } else if (ch === ',' && !inQuotes) {
-                    row.push(cur); cur = '';
-                } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
-                    if (cur !== '' || row.length > 0) { row.push(cur); rows.push(row); row = []; cur = ''; }
-                    if (ch === '\r' && text[i + 1] === '\n') i++;
-                } else {
-                    cur += ch;
-                }
-            }
-            if (cur !== '' || row.length > 0) { row.push(cur); rows.push(row); }
-            if (rows.length === 0) return { headers: [], rows: [] };
-            const headers = rows[0].map(s => s.trim());
-            const objs = [];
-            for (let r = 1; r < rows.length; r++) {
-                const rr = rows[r];
-                let allEmpty = true;
-                for (let z = 0; z < rr.length; z++) if (rr[z] !== '') { allEmpty = false; break; }
-                if (allEmpty) continue;
-                const obj = {};
-                for (let c = 0; c < headers.length; c++) obj[headers[c]] = (c < rr.length) ? rr[c] : '';
-                objs.push(obj);
-            }
-            return { headers, rows: objs };
-        },
-
-        computeStatsFromRows: function (rows) {
-            const stats = {
-                severityCount: 0,
-                visibilityCount: 0,
-                avgSeverity: 0,
-                avgVisibility: 0,
-                totalRecords: rows.length
-            };
-
-            let severitySum = 0;
-            let visibilitySum = 0;
-            let severityValid = 0;
-            let visibilityValid = 0;
-
-            rows.forEach(r => {
-                // Count severity (high severity = 3 or 4)
-                const severityRaw = (r['Severity'] === undefined || r['Severity'] === null) ? '' : String(r['Severity']).trim();
-                if (severityRaw !== '') {
-                    const severityNum = parseInt(severityRaw, 10);
-                    if (!isNaN(severityNum) && severityNum >= 3) {
-                        stats.severityCount++;
-                    }
-                    severitySum += severityNum;
-                    severityValid++;
-                }
-
-                // Count low visibility (visibility < 5 miles)
-                const visibilityRaw = (r['Visibility(mi)'] === undefined || r['Visibility(mi)'] === null) ? '' : String(r['Visibility(mi)']).trim();
-                if (visibilityRaw !== '') {
-                    const visibilityNum = parseFloat(visibilityRaw);
-                    if (!isNaN(visibilityNum) && visibilityNum < 5) {
-                        stats.visibilityCount++;
-                    }
-                    visibilitySum += visibilityNum;
-                    visibilityValid++;
-                }
-            });
-
-            if (severityValid > 0) stats.avgSeverity = (severitySum / severityValid).toFixed(2);
-            if (visibilityValid > 0) stats.avgVisibility = (visibilitySum / visibilityValid).toFixed(2);
-
-            // Build visibility integer histogram (percentage per visibility integer)
-            const visCounts = {};
-            let visTotal = 0;
-            rows.forEach(r2 => {
-                const visibilityRaw2 = (r2['Visibility(mi)'] === undefined || r2['Visibility(mi)'] === null) ? '' : String(r2['Visibility(mi)']).trim();
-                if (visibilityRaw2 !== '') {
-                    const visNum2 = parseFloat(visibilityRaw2);
-                    if (!isNaN(visNum2)) {
-                        const vInt = Math.round(visNum2);
-                        visCounts[vInt] = (visCounts[vInt] || 0) + 1;
-                        visTotal++;
-                    }
-                }
-            });
-
-            const visPercentages = {};
-            Object.keys(visCounts).forEach(k => {
-                visPercentages[k] = ((visCounts[k] / (visTotal || 1)) * 100).toFixed(2);
-            });
-
-            stats.visibilityHistogram = {
-                totalWithVisibility: visTotal,
-                counts: visCounts,
-                percentages: visPercentages
-            };
-
-            // Log histogram summary once
-            if (!this._visibilityHistogramLogged) {
-                console.log('VizSeverityVisibility: visibility integer histogram', stats.visibilityHistogram);
-                this._visibilityHistogramLogged = true;
-            }
-
-            return stats;
-        },
-
-
-        startFetchIfNeeded: function () {
-            if (this._fetchStarted) return;
-            this._fetchStarted = true;
-            var self = this;
-            fetch(this.DATA_PATH).then(res => {
-                if (!res.ok) throw new Error('fetch failed');
-                return res.text();
-            }).then(text => {
-                const parsed = self.parseCSV(text);
-                self.stats = self.computeStatsFromRows(parsed.rows);
-                self._dataLoaded = true;
-                console.log('VizSeverityVisibility: Data loaded', self.stats);
-            }).catch(err => {
-                console.error('VizSeverityVisibility: fetch error', err);
-            });
-        },
-
-        draw: function (p, manager, ai, progress) {
-            p.push();
-            this.startFetchIfNeeded();
-
-            var offsetX = manager.offsetX || 20;
-            var offsetY = manager.offsetY || 150;
-            var width = (manager.width || 600) ;
-            var height = (manager.height || 400);
-
-
-            // --- Visibility integer histogram (1..10) - vertical bars showing percentage of incidents ---
-            var histWidth = Math.floor(width ); // 95% of canvas width
-            var histHeight = Math.min(320, height); // taller for more impact
-            var histX = offsetX + Math.floor((width - histWidth) / 2); // center horizontally
-            var histY = offsetY + 40;
-
-            // Center the title above the histogram
-            p.fill(0);
-            p.textSize(18);
-            p.textAlign(p.CENTER, p.TOP);
-            p.text('Visibility (mi) Distribution — Percentage of Incidents', offsetX + width / 2, offsetY);
-
-            p.push();
-            p.translate(histX, histY);
-            p.fill(0);
-            p.textSize(14);
-            p.textAlign(p.LEFT, p.TOP);
-
-            // Get counts; guard if not present
-            var hist = this.stats.visibilityHistogram || { counts: {}, totalWithVisibility: 0 };
-            var counts = hist.counts || {};
-            var totalWithVis = hist.totalWithVisibility || 0;
-            var totalRecordsAll = this.stats.totalRecords || 1;
-
-            // Prepare data for 1..10
-            var bars = [];
-            var maxPct = 0;
-            for (var v = 1; v <= 10; v++) {
-                var cnt = counts[v] || 0;
-                // percentage of ALL incidents (as requested)
-                var pctOfAll = (cnt / (totalRecordsAll || 1)) * 100;
-                bars.push({vis: v, count: cnt, pctAll: pctOfAll});
-                if (pctOfAll > maxPct) maxPct = pctOfAll;
-            }
-            if (maxPct <= 0) maxPct = 1;
-
-            // Draw axes for histogram
-            var marginLeft = 30;
-            var marginBottom = 28;
-            var axisX = marginLeft;
-            var axisY = histHeight - marginBottom;
-            var axisW = histWidth - marginLeft - 10;
-
-            p.stroke(0);
-            p.strokeWeight(1);
-            p.line(axisX, axisY, axisX + axisW, axisY); // x axis
-            p.strokeWeight(0.5);
-            p.line(axisX, axisY, axisX, 0); // y axis
-
-            // X-axis label centered below axis
-            p.fill(0);
-            p.textSize(13);
-            p.textAlign(p.CENTER, p.TOP);
-            p.text('Visibility (miles)', axisX + axisW / 2, axisY + 28);
-
-            // Y ticks (percent) - 0 to maxPct in nice steps (no y-axis label)
-            p.fill(0);
-            p.textSize(10);
-            p.textAlign(p.RIGHT, p.CENTER);
-            var yTicks = 4;
-            for (var t = 0; t <= yTicks; t++) {
-                var yy = axisY - (t / yTicks) * (axisY - 10);
-                var pctLabel = ((t / yTicks) * maxPct).toFixed(1) + '%';
-                p.line(axisX - 4, yy, axisX, yy);
-                p.text(pctLabel, axisX - 6, yy);
-            }
-
-            // Draw bars with traffic-light colors
-            var barSlot = axisW / 10;
-            for (var i = 0; i < bars.length; i++) {
-                var b = bars[i];
-                var bx = axisX + i * barSlot + 4;
-                var bw = Math.max(4, barSlot - 8);
-                var bh = (b.pctAll / maxPct) * (axisY - 10);
-                var by = axisY - bh;
-
-                // Map visibility to traffic-light colors
-                // 1–3 = red, 4–6 = yellow, 7–10 = green
-                let col;
-                if (b.vis <= 3) {
-                    col = p.color(220, 50, 50);     // red
-                } else if (b.vis <= 6) {
-                    col = p.color(240, 200, 60);    // yellow
-                } else {
-                    col = p.color(60, 180, 75);     // green
-                }
-
-                p.fill(col);
-                p.stroke(255);          // light outline for contrast
-                p.strokeWeight(0.5);
-                p.rect(bx, by, bw, bh, 4); // rounded corners
-
-                // label x with visibility integer
-                p.noStroke();
-                p.fill(30);
-                p.textSize(11);
-                p.textAlign(p.CENTER, p.TOP);
-                p.text(b.vis, bx + bw / 2, axisY + 6);
-
-                // show percentage value above bar if space
-                p.textAlign(p.CENTER, p.BOTTOM);
-                p.text((b.pctAll).toFixed(2) + '%', bx + bw / 2, by - 2);
-            }
-
-            // --- Optional: add subtle vertical grid lines ---
-            p.stroke(200);
-            p.strokeWeight(0.5);
-            for (var i = 1; i <= 10; i++) {
-                var gx = axisX + i * barSlot;
-                p.line(gx, axisY, gx, 10);
-            }
-
-            p.pop();
-            p.pop();
+  window.VizSeverityVisibility = window.VizSeverityVisibility || {
+    DATA_PATH: './data/US_Accidents_March23_WA.csv',
+    parseCSV: function (text) {
+      const rows = [];
+      let cur = '', row = [], inQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (ch === '"') {
+          if (inQuotes && text[i + 1] === '"') { cur += '"'; i++; }
+          else { inQuotes = !inQuotes; }
+        } else if (ch === ',' && !inQuotes) {
+          row.push(cur); cur = '';
+        } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+          if (cur !== '' || row.length > 0) { row.push(cur); rows.push(row); row = []; cur = ''; }
+          if (ch === '\r' && text[i + 1] === '\n') i++;
+        } else {
+          cur += ch;
         }
-    };
+      }
+      if (cur !== '' || row.length > 0) { row.push(cur); rows.push(row); }
+      if (rows.length === 0) return { headers: [], rows: [] };
+      const headers = rows[0].map(s => s.trim());
+      const objs = [];
+      for (let r = 1; r < rows.length; r++) {
+        const rr = rows[r];
+        let allEmpty = true;
+        for (let z = 0; z < rr.length; z++) if (rr[z] !== '') { allEmpty = false; break; }
+        if (allEmpty) continue;
+        const obj = {};
+        for (let c = 0; c < headers.length; c++) obj[headers[c]] = (c < rr.length) ? rr[c] : '';
+        objs.push(obj);
+      }
+      return { headers, rows: objs };
+    },
+    fetchAndParseCSV: function () {
+      if (this._fetchPromise) return this._fetchPromise;
+      const path = this.DATA_PATH || 'data/accident.csv';
+      console.log('[VizSeverityVisibility] fetching CSV from', path);
+      this._fetchPromise = fetch(path)
+        .then(r => {
+          if (!r.ok) throw new Error('Network response not ok: ' + r.status);
+          return r.text();
+        })
+        .then(text => {
+          const parsed = this.parseCSV(text);
+          this._parsedRows = parsed.rows;
+          console.log('[VizSeverityVisibility] parsed rows:', this._parsedRows.length);
+          return this._parsedRows;
+        })
+        .catch(err => {
+          console.error('[VizSeverityVisibility] fetch/parse error:', err);
+          throw err;
+        });
+      return this._fetchPromise;
+    }
+  };
+
+  // Renderer
+  window.viz_fatalities_by_year = {
+    setData: function (manager, rawData) {
+      console.log('[viz_fatalities_by_year] setData called. rawData type:', typeof rawData);
+      function parseCSVWithUserParser(text) {
+        if (window.VizSeverityVisibility && typeof window.VizSeverityVisibility.parseCSV === 'function') {
+          return window.VizSeverityVisibility.parseCSV(text).rows;
+        }
+    
+        const lines = text.split(/\r?\n/).filter(Boolean);
+        if (lines.length === 0) return [];
+        const headers = lines.shift().split(',').map(h => h.trim());
+        return lines.map(line => {
+          const cols = line.split(',');
+          const obj = {};
+          headers.forEach((h, i) => obj[h] = cols[i] === undefined ? '' : cols[i]);
+          return obj;
+        });
+      }
+
+      const getRows = async () => {
+        if (Array.isArray(rawData)) return rawData;
+        if (typeof rawData === 'string') return parseCSVWithUserParser(rawData);
+
+        if (window.VizSeverityVisibility && typeof window.VizSeverityVisibility.fetchAndParseCSV === 'function') {
+          return window.VizSeverityVisibility.fetchAndParseCSV();
+        }
+        // fallback fetch
+        const path = 'data/accident.csv';
+        const resp = await fetch(path);
+        const text = await resp.text();
+        return parseCSVWithUserParser(text);
+      };
+
+      return getRows().then(rows => {
+        console.log('[viz_fatalities_by_year] rows loaded:', rows ? rows.length : 0);
+        manager._rawRows = rows || [];
+
+        // robust key detection
+        const keys = rows.length ? Object.keys(rows[0]) : [];
+        const stateKey = keys.find(k => k.toLowerCase() === 'state') || 'STATE';
+        const stateNameKey = keys.find(k => k.toLowerCase() === 'statename') || 'STATENAME';
+        const yearKey = keys.find(k => k.toLowerCase() === 'year') || 'YEAR';
+        const fatKey = keys.find(k => k.toLowerCase().includes('fatal')) || 'FATALS';
+        console.log('[viz_fatalities_by_year] detected keys:', { stateKey, stateNameKey, yearKey, fatKey });
+
+        // filter WA and aggregate
+        const yearMap = Object.create(null);
+        let total = 0;
+        rows.forEach(r => {
+          const stateName = (r[stateNameKey] || '').trim();
+          const stateCode = (r[stateKey] || '').trim();
+          const isWA = (stateName.toLowerCase() === 'washington') || (stateCode === '53');
+          if (!isWA) return;
+
+          const yearRaw = (r[yearKey] || '').trim();
+          const yearNum = parseInt(yearRaw, 10);
+          if (isNaN(yearNum)) return;
+
+          const fatRaw = (r[fatKey] || '').trim();
+          const fatNum = fatRaw === '' ? 0 : parseFloat(fatRaw);
+          const fatVal = isNaN(fatNum) ? 0 : fatNum;
+
+          yearMap[yearNum] = (yearMap[yearNum] || 0) + fatVal;
+          total += fatVal;
+        });
+
+        const arr = Object.keys(yearMap).map(y => ({ year: +y, fatalities: yearMap[y] }));
+        arr.sort((a, b) => a.year - b.year);
+
+        manager.fatalitiesByYear = arr;
+        manager._maxFatalities = arr.length ? Math.max(...arr.map(d => d.fatalities)) : 0;
+        manager._totalFatalitiesWA = total;
+        console.log('[viz_fatalities_by_year] aggregated years:', manager.fatalitiesByYear);
+      }).catch(err => {
+        console.error('[viz_fatalities_by_year] setData error:', err);
+        // attach empty so draw shows message
+        manager.fatalitiesByYear = [];
+        manager._maxFatalities = 0;
+        manager._totalFatalitiesWA = 0;
+      });
+    },
+
+    draw: function (p, manager, activeIndex, progress) {
+      const data = manager.fatalitiesByYear;
+      p.clear();
+      p.background(255);
+
+      if (!data) {
+        p.fill(0);
+        p.textAlign(p.CENTER, p.CENTER);
+        p.textSize(14);
+        p.text('Renderer initialized but data is undefined', p.width / 2, p.height / 2);
+        return;
+      }
+
+      if (data.length === 0) {
+        p.fill(0);
+        p.textAlign(p.CENTER, p.CENTER);
+        p.textSize(14);
+        p.text('No Washington rows found or data still loading.\nCheck console for errors and confirm CSV path/headers.', p.width / 2, p.height / 2);
+        return;
+      }
+
+      // draw chart (simple)
+      const margin = 60;
+      const legendArea = 80;
+      const chartW = p.width - margin * 2;
+      const chartH = p.height - margin * 2 - legendArea;
+      const maxF = manager._maxFatalities || 1;
+      const barCount = data.length;
+      const barGap = Math.max(2, Math.floor(chartW / (barCount * 20)));
+      const barW = Math.max(2, (chartW - (barCount - 1) * barGap) / barCount);
+
+      // grid
+      p.stroke(230);
+      for (let i = 0; i <= 4; i++) {
+        const y = margin + (chartH * i) / 4;
+        p.line(margin, y, margin + chartW, y);
+      }
+
+      // bars
+      data.forEach((d, i) => {
+        const x = margin + i * (barW + barGap);
+        const barH = p.map(d.fatalities, 0, maxF, 0, chartH);
+        const y = margin + (chartH - barH);
+        p.noStroke();
+        p.fill(70, 130, 180);
+        p.rect(x, y, barW, barH);
+
+        // year label
+        p.push();
+        p.translate(x + barW / 2, margin + chartH + 12);
+        p.fill(0);
+        p.textSize(10);
+        p.textAlign(p.CENTER, p.TOP);
+        p.text(String(d.year), 0, 0);
+        p.pop();
+      });
+
+      // title and total
+      p.fill(0);
+      p.textAlign(p.CENTER, p.TOP);
+      p.textSize(18);
+      p.text('Fatalities per Year — Washington', p.width / 2, 8);
+      p.textSize(12);
+      p.textAlign(p.RIGHT, p.TOP);
+      p.text(`Total fatalities (WA): ${Math.round(manager._totalFatalitiesWA || 0)}`, p.width - 12, 8);
+
+      // legend (colored boxes)
+      const legendX = margin;
+      const legendY = margin + chartH + 40;
+      const boxSize = 14;
+      const gap = 8;
+      const itemSpacing = 220;
+
+      p.noStroke();
+      p.fill(60, 180, 75);
+      p.rect(legendX, legendY - boxSize / 2, boxSize, boxSize);
+      p.fill(0);
+      p.textAlign(p.LEFT, p.CENTER);
+      p.textSize(12);
+      p.text('Low Severity (<2)', legendX + boxSize + gap, legendY);
+
+      p.fill(250, 200, 60);
+      p.rect(legendX + itemSpacing, legendY - boxSize / 2, boxSize, boxSize);
+      p.fill(0);
+      p.text('Medium Severity (2–3)', legendX + itemSpacing + boxSize + gap, legendY);
+
+      p.fill(220, 60, 60);
+      p.rect(legendX + itemSpacing * 2, legendY - boxSize / 2, boxSize, boxSize);
+      p.fill(0);
+      p.text('High Severity (>3)', legendX + itemSpacing * 2 + boxSize + gap, legendY);
+    }
+  };
 })();
